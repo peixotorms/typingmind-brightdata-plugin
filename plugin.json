@@ -2,10 +2,10 @@
   "version": 2,
   "uuid": "brightdata-web-fetcher",
   "id": "brightdata-web-fetcher",
-  "title": "BrightData Web Fetcher with OpenAI",
+  "title": "BrightData Web Fetcher",
   "emoji": "🌐",
   "iconURL": "",
-  "description": "Search the web or fetch webpage content using BrightData APIs and extract structured JSON data with OpenAI processing.",
+  "description": "Search the web or fetch webpage content using BrightData APIs and extract structured JSON data with OpenAI for further processing.",
   "userSettings": [
     {
       "name": "serpApiKey",
