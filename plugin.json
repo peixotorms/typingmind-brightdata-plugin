@@ -2,10 +2,10 @@
   "version": 2,
   "uuid": "brightdata-web-fetcher",
   "id": "brightdata-web-fetcher",
-  "title": "BrightData Web Fetcher",
+  "title": "BrightData Web Fetcher with OpenAI",
   "emoji": "🌐",
   "iconURL": "",
-  "description": "Automatically search or fetch web content using BrightData SERP & Web Unlocker APIs based on natural language instructions.",
+  "description": "Search the web or fetch webpage content using BrightData APIs and extract structured JSON data with OpenAI processing.",
   "userSettings": [
     {
       "name": "serpApiKey",
@@ -36,21 +36,30 @@
       "required": false
     },
     {
-      "name": "autoEnabled",
-      "label": "Enable Automatic Web Fetching",
-      "description": "Whether the plugin should automatically handle web searches and page fetching",
+      "name": "openaiApiKey",
+      "label": "OpenAI API Key",
+      "description": "Your OpenAI API key for content extraction and structuring",
+      "type": "password",
+      "required": true
+    },
+    {
+      "name": "openaiModel",
+      "label": "OpenAI Model",
+      "description": "OpenAI model to use for content extraction",
       "type": "enum",
       "values": [
-        "true",
-        "false"
+        "gpt-4.1",
+        "o4-mini",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano"
       ],
-      "defaultValue": "true",
+      "defaultValue": "gpt-4.1-mini",
       "required": false
     }
   ],
   "openaiSpec": {
     "name": "brightdata_web_fetcher",
-    "description": "Search the web or fetch webpage content using BrightData APIs. Automatically chooses between search (SERP API) or fetch (Web Unlocker API) based on the action property.",
+    "description": "Search the web or fetch webpage content using BrightData APIs. Returns structured JSON data: search results with source name, icon, title, excerpt, and URL; webpage content with extracted article data including title, author, body HTML, images, and metadata.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -60,7 +69,7 @@
             "search",
             "fetch"
           ],
-          "description": "Action to perform: 'search' for web searches, 'fetch' for getting webpage content"
+          "description": "Action to perform: 'search' for web searches returning structured search results, 'fetch' for extracting structured article content from webpages"
         },
         "query": {
           "type": "string",
