@@ -3,9 +3,9 @@ async function brightdata_web_fetcher(params, userSettings) {
     const { action, query, search_type = 'web', url } = params;
     const {
       serpApiKey,
-      serpZone = 'serp_api1_web_search',
+      serpZone,
       unlockerApiKey,
-      unlockerZone = 'web_unlocker1',
+      unlockerZone,
       openaiApiKey,
       openaiModel = 'gpt-4.1-mini'
     } = userSettings;
