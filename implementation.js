@@ -1,86 +1,124 @@
-/**
- * Perform a Google search via BrightData SERP API.
- */
-async function search_web(params, userSettings) {
-  try {
-    const { query, search_type = 'web' } = params;
-    const { serpApiKey, serpZone = 'serp_api1_web_search', autoEnabled = 'true' } = userSettings;
+async function brightdata_web_fetcher(params, userSettings) {
+  const { action, query, search_type = 'web', url } = params;
+  const {
+    serpApiKey,
+    serpZone = 'serp_api1_web_search',
+    unlockerApiKey,
+    unlockerZone = 'web_unlocker1',
+    autoEnabled = 'true'
+  } = userSettings;
 
+  if (autoEnabled !== 'true') {
+    throw new Error('Automatic web fetching is disabled in plugin settings.');
+  }
+
+  // If we are performing a search action
+  if (action === 'search') {
     if (!serpApiKey) {
-      throw new Error('BrightData SERP API key not configured.');
+      throw new Error('BrightData SERP API key not configured. Please set it in plugin settings.');
     }
-    if (autoEnabled !== 'true') {
-      throw new Error('Automatic web fetching is disabled.');
+    if (!query) {
+      throw new Error('Query is required for search action.');
     }
 
-    const encode = encodeURIComponent;
-    const urlMap = {
-      web:    `https://www.google.com/search?q=${encode(query)}`,
-      news:   `https://www.google.com/search?q=${encode(query)}&tbm=nws`,
-      images: `https://www.google.com/search?q=${encode(query)}&tbm=isch`,
-      videos: `https://www.google.com/search?q=${encode(query)}&tbm=vid`,
-      shopping:`https://www.google.com/search?q=${encode(query)}&tbm=shop`,
-      scholar:`https://scholar.google.com/scholar?q=${encode(query)}`
+    const encodedQuery = encodeURIComponent(query);
+    let searchUrl;
+    switch (search_type) {
+      case 'web':
+        searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
+        break;
+      case 'news':
+        searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=nws`;
+        break;
+      case 'images':
+        searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=isch`;
+        break;
+      case 'videos':
+        searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=vid`;
+        break;
+      case 'shopping':
+        searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=shop`;
+        break;
+      case 'scholar':
+        searchUrl = `https://scholar.google.com/scholar?q=${encodedQuery}`;
+        break;
+      default:
+        searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
+    }
+
+    const requestBody = {
+      zone: serpZone,
+      url: searchUrl,
+      format: 'json'
     };
-    const targetUrl = urlMap[search_type] || urlMap.web;
 
-    const body = JSON.stringify({ zone: serpZone, url: targetUrl, format: 'raw' });
-    const res = await fetch('https://api.brightdata.com/request', {
+    const response = await fetch('https://api.brightdata.com/request', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${serpApiKey}`
       },
-      body
+      body: JSON.stringify(requestBody)
     });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`BrightData SERP API error (${res.status}): ${err}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`BrightData SERP API error (${response.status}): ${errorText}`);
     }
-    const text = await res.text();
-    return `Search results for "${query}" (${search_type}):\n\n${text}`;
-  } catch (e) {
-    throw new Error(`search_web failed: ${e.message}`);
-  }
-}
 
-/**
- * Fetch a single webpage via BrightData Web Unlocker API.
- */
-async function fetch_webpage(params, userSettings) {
-  try {
-    const { url } = params;
-    const { unlockerApiKey, unlockerZone = 'web_unlocker1', autoEnabled = 'true' } = userSettings;
+    // Return the result parsed as JSON
+    const jsonResult = await response.json();
+    return {
+      action: "search",
+      query,
+      search_type,
+      result: jsonResult
+    };
 
+  } else if (action === 'fetch') { // If we are fetching a webpage
     if (!unlockerApiKey) {
-      throw new Error('BrightData Web Unlocker API key not configured.');
+      throw new Error('BrightData Web Unlocker API key not configured. Please set it in plugin settings.');
     }
-    if (autoEnabled !== 'true') {
-      throw new Error('Automatic web fetching is disabled.');
+    if (!url) {
+      throw new Error('URL is required for fetch action.');
     }
 
+    // Validate the URL
     try {
       new URL(url);
-    } catch {
+    } catch (_) {
       throw new Error('Invalid URL provided.');
     }
 
-    const body = JSON.stringify({ zone: unlockerZone, url, format: 'raw' });
-    const res = await fetch('https://api.brightdata.com/request', {
+    const requestBody = {
+      zone: unlockerZone,
+      url: url,
+      format: 'json'
+    };
+
+    const response = await fetch('https://api.brightdata.com/request', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${unlockerApiKey}`
       },
-      body
+      body: JSON.stringify(requestBody)
     });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`BrightData Unlocker API error (${res.status}): ${err}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`BrightData Web Unlocker API error (${response.status}): ${errorText}`);
     }
-    const text = await res.text();
-    return `Content from ${url}:\n\n${text}`;
-  } catch (e) {
-    throw new Error(`fetch_webpage failed: ${e.message}`);
+
+    // Return the content as parsed JSON
+    const jsonResult = await response.json();
+    return {
+      action: "fetch",
+      url,
+      result: jsonResult
+    };
+
+  } else {
+    throw new Error('Invalid action. Must be either "search" or "fetch".');
   }
 }

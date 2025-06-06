@@ -10,74 +10,85 @@
     {
       "name": "serpApiKey",
       "label": "BrightData SERP API Key",
+      "description": "Your BrightData API key for SERP (search) requests",
       "type": "password",
-      "required": true,
-      "description": "Your BrightData API key for SERP (search) requests"
+      "required": true
     },
     {
       "name": "serpZone",
       "label": "SERP Zone ID",
+      "description": "BrightData zone identifier for SERP API (default: serp_api1_web_search)",
       "defaultValue": "serp_api1_web_search",
-      "description": "BrightData zone identifier for SERP API"
+      "required": false
     },
     {
       "name": "unlockerApiKey",
       "label": "BrightData Web Unlocker API Key",
+      "description": "Your BrightData API key for Web Unlocker requests",
       "type": "password",
-      "required": true,
-      "description": "Your BrightData API key for Web Unlocker requests"
+      "required": true
     },
     {
       "name": "unlockerZone",
       "label": "Web Unlocker Zone ID",
+      "description": "BrightData zone identifier for Web Unlocker API (default: web_unlocker1)",
       "defaultValue": "web_unlocker1",
-      "description": "BrightData zone identifier for Web Unlocker API"
+      "required": false
     },
     {
       "name": "autoEnabled",
       "label": "Enable Automatic Web Fetching",
+      "description": "Whether the plugin should automatically handle web searches and page fetching",
       "type": "enum",
-      "values": ["true", "false"],
+      "values": [
+        "true",
+        "false"
+      ],
       "defaultValue": "true",
-      "description": "Whether the plugin should automatically handle web searches and page fetching"
+      "required": false
     }
   ],
-  "openaiSpec": [
-    {
-      "name": "search_web",
-      "description": "Search the web using Google search via BrightData SERP API based on a query and type.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "The search query to look up"
-          },
-          "search_type": {
-            "type": "string",
-            "enum": ["web", "news", "images", "videos", "shopping", "scholar"],
-            "description": "Type of search: web (general), news, images, videos, shopping, scholar",
-            "default": "web"
-          }
+  "openaiSpec": {
+    "name": "brightdata_web_fetcher",
+    "description": "Search the web or fetch webpage content using BrightData APIs. Automatically chooses between search (SERP API) or fetch (Web Unlocker API) based on the action property.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "search",
+            "fetch"
+          ],
+          "description": "Action to perform: 'search' for web searches, 'fetch' for getting webpage content"
         },
-        "required": ["query"]
-      }
-    },
-    {
-      "name": "fetch_webpage",
-      "description": "Fetch and read content from a specific webpage URL using BrightData Web Unlocker API.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "url": {
-            "type": "string",
-            "description": "The full URL to fetch content from"
-          }
+        "query": {
+          "type": "string",
+          "description": "Search query (required when action is 'search')"
         },
-        "required": ["url"]
-      }
+        "search_type": {
+          "type": "string",
+          "enum": [
+            "web",
+            "news",
+            "images",
+            "videos",
+            "shopping",
+            "scholar"
+          ],
+          "description": "Type of search (only used when action is 'search')",
+          "default": "web"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to fetch content from (required when action is 'fetch')"
+        }
+      },
+      "required": [
+        "action"
+      ]
     }
-  ],
+  },
   "implementationType": "javascript",
   "implementation": "implementation.js"
 }
