@@ -1,46 +1,29 @@
-# BrightData Web Fetcher Plugin for TypingMind
+# BrightData Web Fetcher — TypingMind Plugin
 
-A minimalist TypingMind plugin that automatically fetches web content and search results using BrightData API based on natural language instructions.
+Automatically search or fetch web content using BrightData APIs (SERP & Web Unlocker) based on natural language instructions.
 
 ## Features
 
-- **Automatic Web Search**: Just ask the AI to search for something and it will automatically use Google search via BrightData SERP API
-- **Webpage Fetching**: Provide any URL and the AI will fetch and read the content using BrightData Web Unlocker API
-- **Multiple Search Types**: Supports web, news, images, videos, shopping, and scholar searches
-- **Natural Language**: No commands needed - just talk naturally to the AI
-- **Secure Configuration**: API keys are stored securely in plugin settings
-
-## Usage Examples
-
-### Search Examples
-- "Search for the latest news about AI developments"
-- "Look up current Bitcoin price"
-- "Find information about climate change"
-- "What are the latest tech trends?"
-- "Search for pizza recipes"
-
-### Webpage Fetching Examples
-- "Read this article: https://example.com/article"
-- "What does this page say: https://news.site.com"
-- "Analyze this website: https://company.com"
-- "Get the content from https://blog.example.com"
+- **Natural‑language Web Search**: Ask the AI to search for something (e.g. "Search for the latest AI news") and it will use the BrightData SERP API.
+- **Webpage Fetching**: Provide a URL (e.g. "Read this article: https://example.com") and the AI will fetch and read the page via BrightData Web Unlocker API.
+- **Multiple Search Types**: Supports `web`, `news`, `images`, `videos`, `shopping`, and `scholar`.
+- **No Commands Needed**: AI infers when to search vs. fetch based on your request—no slash‑commands.
+- **Secure, Separate Settings**: Configure SERP API key/zone and Unlocker API key/zone independently.
 
 ## Setup
 
-1. Import this plugin to TypingMind
-2. Configure your BrightData API key in plugin settings
-3. Set your SERP and Web Unlocker zone IDs (optional - defaults provided)
-4. Enable automatic web fetching
-5. Start chatting naturally with the AI!
+1. Push these three files (`plugin.json`, `implementation.js`, `README.md`) to a **public** GitHub repo, e.g.  
+   `https://github.com/peixotorms/typingmind-brightdata-plugin`
+2. In TypingMind, go to **Plugins → Import plugins → GitHub URL**, and paste your repo URL.
+3. Open the plugin’s **Settings** and enter:
+   - **BrightData SERP API Key**
+   - **SERP Zone ID** (default: `serp_api1_web_search`)
+   - **BrightData Web Unlocker API Key**
+   - **Web Unlocker Zone ID** (default: `web_unlocker1`)
+   - **Enable Automatic Web Fetching** → `true`
+4. Chat naturally—ask it to search or fetch pages and enjoy live web results!
 
 ## Requirements
 
-- BrightData API account with SERP API and Web Unlocker access
-- Valid API key and zone configurations
-
-## API Endpoints Used
-
-- **SERP API**: For web searches via Google
-- **Web Unlocker API**: For fetching individual web pages
-
-The plugin automatically chooses the right API based on your request context.
+- BrightData account with SERP & Web Unlocker access.
+- Valid API Keys and Zone IDs.

@@ -1,127 +1,86 @@
+/**
+ * Perform a Google search via BrightData SERP API.
+ */
 async function search_web(params, userSettings) {
   try {
     const { query, search_type = 'web' } = params;
-    const { apiKey, serpZone = 'serp_api1_web_search', autoEnabled = 'true' } = userSettings;
-    
-    if (!apiKey) {
-      throw new Error('BrightData API key not configured. Please set it in plugin settings.');
-    }
-    
-    if (autoEnabled !== 'true') {
-      throw new Error('Automatic web fetching is disabled in plugin settings.');
-    }
-    
-    const searchTypes = {
-      'web': 'https://www.google.com/search?q=',
-      'news': 'https://www.google.com/search?q={query}&tbm=nws',
-      'images': 'https://www.google.com/search?q={query}&tbm=isch',
-      'videos': 'https://www.google.com/search?q={query}&tbm=vid',
-      'shopping': 'https://www.google.com/search?q={query}&tbm=shop',
-      'scholar': 'https://scholar.google.com/scholar?q='
-    };
-    
-    if (!searchTypes[search_type]) {
-      throw new Error(`Invalid search type. Available types: ${Object.keys(searchTypes).join(', ')}`);
-    }
-    
-    const encodedQuery = encodeURIComponent(query);
-    let searchUrl;
-    
-    switch(search_type) {
-      case 'web':
-        searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
-        break;
-      case 'news':
-        searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=nws`;
-        break;
-      case 'images':
-        searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=isch`;
-        break;
-      case 'videos':
-        searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=vid`;
-        break;
-      case 'shopping':
-        searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=shop`;
-        break;
-      case 'scholar':
-        searchUrl = `https://scholar.google.com/scholar?q=${encodedQuery}`;
-        break;
-      default:
-        searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
-    }
-    
-    const requestBody = {
-      zone: serpZone,
-      url: searchUrl,
-      format: 'raw'
-    };
+    const { serpApiKey, serpZone = 'serp_api1_web_search', autoEnabled = 'true' } = userSettings;
 
-    const response = await fetch('https://api.brightdata.com/request', {
+    if (!serpApiKey) {
+      throw new Error('BrightData SERP API key not configured.');
+    }
+    if (autoEnabled !== 'true') {
+      throw new Error('Automatic web fetching is disabled.');
+    }
+
+    const encode = encodeURIComponent;
+    const urlMap = {
+      web:    `https://www.google.com/search?q=${encode(query)}`,
+      news:   `https://www.google.com/search?q=${encode(query)}&tbm=nws`,
+      images: `https://www.google.com/search?q=${encode(query)}&tbm=isch`,
+      videos: `https://www.google.com/search?q=${encode(query)}&tbm=vid`,
+      shopping:`https://www.google.com/search?q=${encode(query)}&tbm=shop`,
+      scholar:`https://scholar.google.com/scholar?q=${encode(query)}`
+    };
+    const targetUrl = urlMap[search_type] || urlMap.web;
+
+    const body = JSON.stringify({ zone: serpZone, url: targetUrl, format: 'raw' });
+    const res = await fetch('https://api.brightdata.com/request', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${serpApiKey}`
       },
-      body: JSON.stringify(requestBody)
+      body
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`BrightData API error (${response.status}): ${errorText}`);
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`BrightData SERP API error (${res.status}): ${err}`);
     }
-
-    const result = await response.text();
-    return `Search results for "${query}" (${search_type}):\n\n${result}`;
-    
-  } catch (error) {
-    throw new Error(`Search failed: ${error.message}`);
+    const text = await res.text();
+    return `Search results for "${query}" (${search_type}):\n\n${text}`;
+  } catch (e) {
+    throw new Error(`search_web failed: ${e.message}`);
   }
 }
 
+/**
+ * Fetch a single webpage via BrightData Web Unlocker API.
+ */
 async function fetch_webpage(params, userSettings) {
   try {
     const { url } = params;
-    const { apiKey, unlockerZone = 'web_unlocker1', autoEnabled = 'true' } = userSettings;
-    
-    if (!apiKey) {
-      throw new Error('BrightData API key not configured. Please set it in plugin settings.');
+    const { unlockerApiKey, unlockerZone = 'web_unlocker1', autoEnabled = 'true' } = userSettings;
+
+    if (!unlockerApiKey) {
+      throw new Error('BrightData Web Unlocker API key not configured.');
     }
-    
     if (autoEnabled !== 'true') {
-      throw new Error('Automatic web fetching is disabled in plugin settings.');
+      throw new Error('Automatic web fetching is disabled.');
     }
-    
-    // Validate URL
+
     try {
       new URL(url);
-    } catch (_) {
-      throw new Error('Invalid URL provided');
+    } catch {
+      throw new Error('Invalid URL provided.');
     }
-    
-    const requestBody = {
-      zone: unlockerZone,
-      url: url,
-      format: 'raw'
-    };
 
-    const response = await fetch('https://api.brightdata.com/request', {
+    const body = JSON.stringify({ zone: unlockerZone, url, format: 'raw' });
+    const res = await fetch('https://api.brightdata.com/request', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${unlockerApiKey}`
       },
-      body: JSON.stringify(requestBody)
+      body
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`BrightData API error (${response.status}): ${errorText}`);
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`BrightData Unlocker API error (${res.status}): ${err}`);
     }
-
-    const result = await response.text();
-    return `Content from ${url}:\n\n${result}`;
-    
-  } catch (error) {
-    throw new Error(`Webpage fetch failed: ${error.message}`);
+    const text = await res.text();
+    return `Content from ${url}:\n\n${text}`;
+  } catch (e) {
+    throw new Error(`fetch_webpage failed: ${e.message}`);
   }
 }

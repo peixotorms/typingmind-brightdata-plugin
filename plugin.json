@@ -1,12 +1,83 @@
 {
-  "version": 1,
-  "uuid": "brightdata-web-fetcher-v1",
-  "iconURL": "",
-  "emoji": "🌐",
+  "version": 2,
+  "uuid": "brightdata-web-fetcher",
+  "id": "brightdata-web-fetcher",
   "title": "BrightData Web Fetcher",
-  "userSettings": "[{\"name\":\"apiKey\",\"label\":\"BrightData API Key\",\"type\":\"password\",\"required\":true,\"description\":\"Your BrightData API key\"},{\"name\":\"serpZone\",\"label\":\"SERP Zone ID\",\"defaultValue\":\"serp_api1_web_search\",\"description\":\"Your SERP API zone ID\"},{\"name\":\"unlockerZone\",\"label\":\"Web Unlocker Zone ID\",\"defaultValue\":\"web_unlocker1\",\"description\":\"Your Web Unlocker zone ID\"},{\"name\":\"autoEnabled\",\"label\":\"Enable Automatic Web Fetching\",\"type\":\"enum\",\"values\":[\"true\",\"false\"],\"defaultValue\":\"true\",\"description\":\"Enable automatic web fetching based on AI instructions\"}]",
-  "openaiSpec": "[{\"name\":\"search_web\",\"description\":\"Search the web for information using Google search. Use this when the user asks you to search for something, look up information, or find current data about any topic.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The search query/question to search for\"},\"search_type\":{\"type\":\"string\",\"enum\":[\"web\",\"news\",\"images\",\"videos\",\"shopping\",\"scholar\"],\"description\":\"Type of search: web (general), news (latest news), images, videos, shopping (products), scholar (academic)\",\"default\":\"web\"}},\"required\":[\"query\"]}},{\"name\":\"fetch_webpage\",\"description\":\"Fetch and read content from a specific webpage URL. Use this when the user provides a specific URL they want you to read, analyze, or get information from.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\",\"description\":\"The complete URL to fetch content from\"}},\"required\":[\"url\"]}}]",
+  "emoji": "🌐",
+  "iconURL": "",
+  "description": "Automatically search or fetch web content using BrightData SERP & Web Unlocker APIs based on natural language instructions.",
+  "userSettings": [
+    {
+      "name": "serpApiKey",
+      "label": "BrightData SERP API Key",
+      "type": "password",
+      "required": true,
+      "description": "Your BrightData API key for SERP (search) requests"
+    },
+    {
+      "name": "serpZone",
+      "label": "SERP Zone ID",
+      "defaultValue": "serp_api1_web_search",
+      "description": "BrightData zone identifier for SERP API"
+    },
+    {
+      "name": "unlockerApiKey",
+      "label": "BrightData Web Unlocker API Key",
+      "type": "password",
+      "required": true,
+      "description": "Your BrightData API key for Web Unlocker requests"
+    },
+    {
+      "name": "unlockerZone",
+      "label": "Web Unlocker Zone ID",
+      "defaultValue": "web_unlocker1",
+      "description": "BrightData zone identifier for Web Unlocker API"
+    },
+    {
+      "name": "autoEnabled",
+      "label": "Enable Automatic Web Fetching",
+      "type": "enum",
+      "values": ["true", "false"],
+      "defaultValue": "true",
+      "description": "Whether the plugin should automatically handle web searches and page fetching"
+    }
+  ],
+  "openaiSpec": [
+    {
+      "name": "search_web",
+      "description": "Search the web using Google search via BrightData SERP API based on a query and type.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query to look up"
+          },
+          "search_type": {
+            "type": "string",
+            "enum": ["web", "news", "images", "videos", "shopping", "scholar"],
+            "description": "Type of search: web (general), news, images, videos, shopping, scholar",
+            "default": "web"
+          }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "fetch_webpage",
+      "description": "Fetch and read content from a specific webpage URL using BrightData Web Unlocker API.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The full URL to fetch content from"
+          }
+        },
+        "required": ["url"]
+      }
+    }
+  ],
   "implementationType": "javascript",
-  "id": "brightdata_web_fetcher",
-  "outputType": "respond_to_ai"
+  "implementation": "implementation.js"
 }
