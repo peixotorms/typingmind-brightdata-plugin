@@ -31,11 +31,11 @@ async function brightdata_web_fetcher(params, userSettings) {
             "properties": {
               "source_name": {
                 "type": ["string", "null"],
-                "description": "Name of the website or source"
+                "description": "Name of the source or domain"
               },
               "icon": {
                 "type": ["string", "null"],
-                "description": "URL of the source's favicon or icon"
+                "description": "data encoded image for the source"
               },
               "title": {
                 "type": ["string", "null"],
@@ -47,7 +47,7 @@ async function brightdata_web_fetcher(params, userSettings) {
               },
               "url": {
                 "type": ["string", "null"],
-                "description": "Complete URL of the search result"
+                "description": "Complete URL of the search result without recognizable tracking codes"
               }
             },
             "required": ["source_name", "icon", "title", "excerpt", "url"],
@@ -66,10 +66,6 @@ async function brightdata_web_fetcher(params, userSettings) {
         "article": {
           "type": "object",
           "properties": {
-            "page_title": {
-              "type": ["string", "null"],
-              "description": "HTML page title from <title> tag"
-            },
             "title": {
               "type": ["string", "null"],
               "description": "Main article headline"
@@ -98,13 +94,9 @@ async function brightdata_web_fetcher(params, userSettings) {
               "type": ["string", "null"],
               "description": "ISO 8601 formatted publication date"
             },
-            "modified_date": {
-              "type": ["string", "null"],
-              "description": "ISO 8601 formatted last modification date"
-            },
             "location": {
               "type": ["string", "null"],
-              "description": "Geographic location(s) mentioned or relevant to the article"
+              "description": "Country, State, City, relevant to the WHERE description of the article considering the complete article"
             },
             "highlights": {
               "type": ["array", "null"],
@@ -124,7 +116,7 @@ async function brightdata_web_fetcher(params, userSettings) {
                 "properties": {
                   "url": {
                     "type": ["string", "null"],
-                    "description": "Complete image URL"
+                    "description": "Complete image URL or data encoded data url"
                   },
                   "caption": {
                     "type": ["string", "null"],
@@ -132,7 +124,7 @@ async function brightdata_web_fetcher(params, userSettings) {
                   },
                   "copyright": {
                     "type": ["string", "null"],
-                    "description": "Copyright notice or license information"
+                    "description": "Copyright notice or license information for the image"
                   }
                 },
                 "required": ["url", "caption", "copyright"],
@@ -144,7 +136,7 @@ async function brightdata_web_fetcher(params, userSettings) {
               "description": "Article copyright information"
             }
           },
-          "required": ["page_title", "title", "subtitle", "tagline", "category", "author", "publisher", "published_date", "modified_date", "location", "highlights", "body", "images", "copyright"],
+          "required": ["title", "subtitle", "tagline", "category", "author", "publisher", "published_date", "location", "highlights", "body", "images", "copyright"],
           "additionalProperties": false
         }
       },
@@ -164,11 +156,11 @@ async function brightdata_web_fetcher(params, userSettings) {
         prompt = `Extract search results from this Google search HTML content for the query: "${query}". 
 
 Find all search results and extract exactly what you see:
-- source_name: The website domain or source name (e.g., "wikipedia.org", "example.com")
-- icon: Any favicon or icon URL if visible (use null if not found)
+- source_name: The source name acronym, name, or domain name (e.g., CNN, BBC, Microsoft, "wikipedia.org", "example.com")
+- icon: The data:image encoded image next to the source name or null
 - title: The clickable title/headline of each result
 - excerpt: The description or snippet text below the title
-- url: The complete destination URL
+- url: The complete destination URL without recognizable tracking codes
 
 Return only what is actually present in the search results. Do not invent or summarize.
 
