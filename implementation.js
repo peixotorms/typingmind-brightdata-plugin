@@ -33,10 +33,6 @@ async function brightdata_web_fetcher(params, userSettings) {
                 "type": ["string", "null"],
                 "description": "Name of the source or domain"
               },
-              "icon": {
-                "type": ["string", "null"],
-                "description": "data encoded image for the source"
-              },
               "title": {
                 "type": ["string", "null"],
                 "description": "Title of the search result"
@@ -50,7 +46,7 @@ async function brightdata_web_fetcher(params, userSettings) {
                 "description": "Complete URL of the search result without recognizable tracking codes"
               }
             },
-            "required": ["source_name", "icon", "title", "excerpt", "url"],
+            "required": ["source_name", "title", "excerpt", "url"],
             "additionalProperties": false
           }
         }
@@ -157,7 +153,6 @@ async function brightdata_web_fetcher(params, userSettings) {
 
 Find all search results and extract exactly what you see:
 - source_name: The source name acronym, name, or domain name (e.g., CNN, BBC, Microsoft, "wikipedia.org", "example.com")
-- icon: The data:image encoded image next to the source name or null
 - title: The clickable title/headline of each result
 - excerpt: The description or snippet text below the title
 - url: The complete destination URL without recognizable tracking codes
@@ -187,6 +182,7 @@ Follow these exact requirements:
 7. Remove copyright information from body and place in separate copyright field
 8. Look for highlights, key points, or summary bullets
 9. Extract exactly what is present - do not summarize or modify content
+10. Remove all information regarding links or suggestions for other content, even if they show up inside the main article content.
 
 HTML Content:
 ${content}`;
