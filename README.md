@@ -1,4 +1,4 @@
-# BrightData Web Fetcher — TypingMind Plugin
+## BrightData Web Fetcher — TypingMind Plugin
 
 Automatically search or fetch web content using BrightData APIs (SERP & Web Unlocker) based on natural language instructions and parse the large HTML response through OpenAI to extract relevant json data.
 
