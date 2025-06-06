@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "uuid": "brightdata-web-fetcher-v1",
+  "iconURL": "",
+  "emoji": "🌐",
+  "title": "BrightData Web Fetcher",
+  "userSettings": "[{\"name\":\"apiKey\",\"label\":\"BrightData API Key\",\"type\":\"password\",\"required\":true,\"description\":\"Your BrightData API key\"},{\"name\":\"serpZone\",\"label\":\"SERP Zone ID\",\"defaultValue\":\"serp_api1_web_search\",\"description\":\"Your SERP API zone ID\"},{\"name\":\"unlockerZone\",\"label\":\"Web Unlocker Zone ID\",\"defaultValue\":\"web_unlocker1\",\"description\":\"Your Web Unlocker zone ID\"},{\"name\":\"autoEnabled\",\"label\":\"Enable Automatic Web Fetching\",\"type\":\"enum\",\"values\":[\"true\",\"false\"],\"defaultValue\":\"true\",\"description\":\"Enable automatic web fetching based on AI instructions\"}]",
+  "openaiSpec": "[{\"name\":\"search_web\",\"description\":\"Search the web for information using Google search. Use this when the user asks you to search for something, look up information, or find current data about any topic.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The search query/question to search for\"},\"search_type\":{\"type\":\"string\",\"enum\":[\"web\",\"news\",\"images\",\"videos\",\"shopping\",\"scholar\"],\"description\":\"Type of search: web (general), news (latest news), images, videos, shopping (products), scholar (academic)\",\"default\":\"web\"}},\"required\":[\"query\"]}},{\"name\":\"fetch_webpage\",\"description\":\"Fetch and read content from a specific webpage URL. Use this when the user provides a specific URL they want you to read, analyze, or get information from.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\",\"description\":\"The complete URL to fetch content from\"}},\"required\":[\"url\"]}}]",
+  "implementationType": "javascript",
+  "id": "brightdata_web_fetcher",
+  "outputType": "respond_to_ai"
+}
