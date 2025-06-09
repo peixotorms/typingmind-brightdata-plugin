@@ -59,84 +59,27 @@ async function brightdata_web_fetcher(params, userSettings) {
     const articleContentSchema = {
       "type": "object",
       "properties": {
-        "article": {
+        "data": {
           "type": "object",
           "properties": {
             "title": {
               "type": ["string", "null"],
               "description": "Main article headline"
             },
-            "subtitle": {
+            "content": {
               "type": ["string", "null"],
-              "description": "Article subtitle or deck"
+              "description": "Clean text content of the main article body without HTML tags, line breaks, or non-essential information"
             },
-            "tagline": {
+            "target_research": {
               "type": ["string", "null"],
-              "description": "Brief tagline or summary statement"
-            },
-            "category": {
-              "type": ["string", "null"],
-              "description": "Article category, section, or tag"
-            },
-            "author": {
-              "type": ["string", "null"],
-              "description": "Author name(s)"
-            },
-            "publisher": {
-              "type": ["string", "null"],
-              "description": "Publishing organization or website name"
-            },
-            "published_date": {
-              "type": ["string", "null"],
-              "description": "ISO 8601 formatted publication date"
-            },
-            "location": {
-              "type": ["string", "null"],
-              "description": "Country, State, City, relevant to the WHERE description of the article considering the complete article"
-            },
-            "highlights": {
-              "type": ["array", "null"],
-              "items": {
-                "type": "string"
-              },
-              "description": "Key points, bullet points, or article highlights"
-            },
-            "body": {
-              "type": ["string", "null"],
-              "description": "Clean HTML content using only: h1, h2, h3, h4, h5, h6, p, ul, ol, li, a tags"
-            },
-            "images": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "url": {
-                    "type": ["string", "null"],
-                    "description": "Complete image URL or data encoded data url"
-                  },
-                  "caption": {
-                    "type": ["string", "null"],
-                    "description": "Image caption or description"
-                  },
-                  "copyright": {
-                    "type": ["string", "null"],
-                    "description": "Copyright notice or license information for the image"
-                  }
-                },
-                "required": ["url", "caption", "copyright"],
-                "additionalProperties": false
-              }
-            },
-            "copyright": {
-              "type": ["string", "null"],
-              "description": "Article copyright information"
+              "description": "Targeted research query (2-10 words) based on the main topic to find additional information"
             }
           },
-          "required": ["title", "subtitle", "tagline", "category", "author", "publisher", "published_date", "location", "highlights", "body", "images", "copyright"],
+          "required": ["title", "content", "target_research"],
           "additionalProperties": false
         }
       },
-      "required": ["article"],
+      "required": ["data"],
       "additionalProperties": false
     };
 
@@ -170,19 +113,13 @@ ${content}`;
           }
         };
       } else if (actionType === 'fetch') {
-        prompt = `Extract article content from this webpage HTML from: ${url}
-
-Follow these exact requirements:
-1. Extract all visible article content maintaining the original order and structure
-2. Use ISO 8601 format for all dates (YYYY-MM-DDTHH:MM:SS±HH:MM)
-3. If any field is not available, use null instead of empty strings
-4. Convert body content to clean HTML using only: h1, h2, h3, h4, h5, h6, p, ul, ol, li, a tags
-5. HTML tags must have NO attributes except href on <a> tags: <a href='complete_url'>text</a>
-6. Extract all images separately with metadata
-7. Remove copyright information from body and place in separate copyright field
-8. Look for highlights, key points, or summary bullets
-9. Extract exactly what is present - do not summarize or modify content
-10. Remove all information regarding links or suggestions for other content, even if they show up inside the main article content.
+        prompt = `Extract the main content from the HTML:
+1. Identify and extract ONLY the main article/content body as clean text.
+2. Remove all navigation, ads, sidebars, suggested articles, copyright notices, social media buttons, comments, suggestions for following, subscribing or reading more about different topics, footers, content unrelated to the main content, or any non-essential information.
+3. Remove all HTML tags and links to return only plain text.
+4. Remove all line breaks such as \\n or \\r\\n.
+5. Focus only on the core readable content that a user would want to read.
+6. Generate a targeted research query (2-10 words) based on the main topic that would help find additional information about this story.
 
 HTML Content:
 ${content}`;
@@ -205,7 +142,7 @@ ${content}`;
           }
         ],
         response_format: responseFormat,
-        max_tokens: 4000,
+        max_tokens: 32768,
         temperature: 0
       };
 
