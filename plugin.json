@@ -5,47 +5,47 @@
   "title": "BrightData Web Fetcher",
   "emoji": "🌐",
   "iconURL": "",
-  "description": "Search the web or fetch webpage content using BrightData APIs and extract structured JSON data with OpenAI for further processing.",
+  "description": "Comprehensive web data extraction plugin that searches Google, fetches and processes webpage content, and downloads images. Uses BrightData APIs to bypass restrictions and OpenAI to extract clean, structured data from HTML content.",
   "userSettings": [
     {
       "name": "serpApiKey",
       "label": "BrightData SERP API Key",
-      "description": "Your BrightData API key for SERP (search) requests",
+      "description": "Your BrightData API key for Google search requests. Required for web, news, images, videos, shopping, and scholar searches.",
       "type": "password",
       "required": true
     },
     {
       "name": "serpZone",
       "label": "SERP Zone ID",
-      "description": "BrightData zone identifier for SERP API (default: serp_api1_web_search)",
+      "description": "BrightData zone identifier for SERP API requests. Leave default unless using a custom zone.",
       "defaultValue": "serp_api1_web_search",
       "required": false
     },
     {
       "name": "unlockerApiKey",
       "label": "BrightData Web Unlocker API Key",
-      "description": "Your BrightData API key for Web Unlocker requests",
+      "description": "Your BrightData API key for bypassing website protections when fetching webpages and downloading images. Required for content extraction and image downloads.",
       "type": "password",
       "required": true
     },
     {
       "name": "unlockerZone",
       "label": "Web Unlocker Zone ID",
-      "description": "BrightData zone identifier for Web Unlocker API (default: web_unlocker1)",
+      "description": "BrightData zone identifier for Web Unlocker API requests. Leave default unless using a custom zone.",
       "defaultValue": "web_unlocker1",
       "required": false
     },
     {
       "name": "openaiApiKey",
       "label": "OpenAI API Key",
-      "description": "Your OpenAI API key for content extraction and structuring",
+      "description": "Your OpenAI API key for processing HTML content and extracting clean, readable text from webpages. Required for intelligent content extraction.",
       "type": "password",
       "required": true
     },
     {
       "name": "openaiModel",
       "label": "OpenAI Model",
-      "description": "OpenAI model to use for content extraction",
+      "description": "OpenAI model used for HTML content processing and text extraction. Higher models provide better accuracy but cost more.",
       "type": "enum",
       "values": [
         "gpt-4.1",
@@ -59,7 +59,7 @@
   ],
   "openaiSpec": {
     "name": "brightdata_web_fetcher",
-    "description": "Search the web or fetch webpage content using BrightData APIs. Returns structured JSON data: search results with source name, icon, title, excerpt, and URL; webpage content with extracted article data including title, author, body HTML, images, and metadata.",
+    "description": "Comprehensive web data extraction tool that performs Google searches, fetches and intelligently processes webpage content, and downloads images in base64 format for AI analysis. Uses BrightData APIs to bypass website restrictions and OpenAI to extract clean, structured content from HTML.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -67,13 +67,14 @@
           "type": "string",
           "enum": [
             "search",
-            "fetch"
+            "fetch",
+            "download_image"
           ],
-          "description": "Action to perform: 'search' for web searches returning structured search results, 'fetch' for extracting structured article content from webpages"
+          "description": "Action to perform: 'search' performs Google searches and returns structured results with titles, excerpts, and URLs; 'fetch' extracts and processes webpage content using AI to return clean readable text; 'download_image' downloads images from URLs and converts them to base64 format for AI processing"
         },
         "query": {
           "type": "string",
-          "description": "Search query (required when action is 'search')"
+          "description": "Search query for Google searches. Can include operators like site:, filetype:, quotes for exact phrases, etc. Only required when action is 'search'."
         },
         "search_type": {
           "type": "string",
@@ -85,12 +86,23 @@
             "shopping",
             "scholar"
           ],
-          "description": "Type of search (only used when action is 'search')",
+          "description": "Type of Google search to perform. 'web' for general results, 'news' for recent news articles, 'images' for image search results, 'videos' for video content, 'shopping' for product listings, 'scholar' for academic papers. Only used with 'search' action.",
           "default": "web"
         },
         "url": {
           "type": "string",
-          "description": "URL to fetch content from (required when action is 'fetch')"
+          "description": "Complete URL to process. For 'fetch' action: webpage URL to extract content from (supports articles, blogs, documentation, etc.). For 'download_image' action: direct image URL to download and convert to base64 format."
+        },
+        "image_format": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "jpeg",
+            "png",
+            "webp"
+          ],
+          "description": "Preferred image format for processing. 'auto' automatically detects format from URL extension or content type. 'jpeg', 'png', 'webp' force specific format handling. Only used with 'download_image' action.",
+          "default": "auto"
         }
       },
       "required": [

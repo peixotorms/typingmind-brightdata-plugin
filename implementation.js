@@ -1,6 +1,6 @@
 async function brightdata_web_fetcher(params, userSettings) {
   try {
-    const { action, query, search_type = 'web', url } = params;
+    const { action, query, search_type = 'web', url, image_format = 'auto' } = params;
     const {
       serpApiKey,
       serpZone,
@@ -52,6 +52,54 @@ async function brightdata_web_fetcher(params, userSettings) {
       
       // Check if content matches any HTML pattern
       return htmlPatterns.some(pattern => pattern.test(trimmedContent));
+    }
+
+    // Helper function to detect image format from URL or content type
+    function detectImageFormat(url, contentType = '') {
+      const urlLower = url.toLowerCase();
+      const contentTypeLower = contentType.toLowerCase();
+      
+      // Check content type first
+      if (contentTypeLower.includes('image/jpeg') || contentTypeLower.includes('image/jpg')) {
+        return 'jpeg';
+      }
+      if (contentTypeLower.includes('image/png')) {
+        return 'png';
+      }
+      if (contentTypeLower.includes('image/webp')) {
+        return 'webp';
+      }
+      if (contentTypeLower.includes('image/gif')) {
+        return 'gif';
+      }
+      
+      // Check URL extension
+      if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) {
+        return 'jpeg';
+      }
+      if (urlLower.includes('.png')) {
+        return 'png';
+      }
+      if (urlLower.includes('.webp')) {
+        return 'webp';
+      }
+      if (urlLower.includes('.gif')) {
+        return 'gif';
+      }
+      
+      // Default to jpeg if unable to determine
+      return 'jpeg';
+    }
+
+    // Helper function to convert ArrayBuffer to base64
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
     }
 
     // JSON schema for SERP results
@@ -369,10 +417,118 @@ ${content}`;
         content_type: "html"
       };
 
+    } else if (action === 'download_image') { // If we are downloading an image
+      if (!unlockerApiKey) {
+        return {
+          success: false,
+          error: 'BrightData Web Unlocker API key not configured. Please set it in plugin settings.'
+        };
+      }
+      if (!url) {
+        return {
+          success: false,
+          error: 'URL is required for download_image action.'
+        };
+      }
+
+      // Validate the URL
+      try {
+        new URL(url);
+      } catch (_) {
+        return {
+          success: false,
+          error: 'Invalid URL provided.'
+        };
+      }
+
+      // First try direct fetch for images
+      try {
+        const directResponse = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
+
+        if (directResponse.ok) {
+          const contentType = directResponse.headers.get('content-type') || '';
+          
+          // Check if it's actually an image
+          if (contentType.startsWith('image/')) {
+            const imageBuffer = await directResponse.arrayBuffer();
+            const base64Data = arrayBufferToBase64(imageBuffer);
+            const detectedFormat = detectImageFormat(url, contentType);
+            
+            return {
+              success: true,
+              action: "download_image",
+              url,
+              image: {
+                data: base64Data,
+                format: detectedFormat,
+                content_type: contentType,
+                size_bytes: imageBuffer.byteLength,
+                base64_url: `data:${contentType};base64,${base64Data}`
+              },
+              method: "direct_fetch"
+            };
+          }
+        }
+      } catch (directError) {
+        // If direct fetch fails, continue with BrightData
+        console.log('Direct fetch failed, trying BrightData:', directError.message);
+      }
+
+      // Fallback to BrightData if direct fetch fails
+      const requestBody = {
+        zone: unlockerZone,
+        url: url,
+        format: 'raw'
+      };
+
+      const response = await fetch('https://api.brightdata.com/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${unlockerApiKey}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          success: false,
+          error: `BrightData Web Unlocker API error (${response.status}): ${errorText}`
+        };
+      }
+
+      // Get the response as ArrayBuffer for binary data
+      const imageBuffer = await response.arrayBuffer();
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      
+      // Convert to base64
+      const base64Data = arrayBufferToBase64(imageBuffer);
+      const detectedFormat = image_format === 'auto' ? detectImageFormat(url, contentType) : image_format;
+      
+      return {
+        success: true,
+        action: "download_image",
+        url,
+        image: {
+          data: base64Data,
+          format: detectedFormat,
+          content_type: contentType,
+          size_bytes: imageBuffer.byteLength,
+          base64_url: `data:${contentType};base64,${base64Data}`
+        },
+        method: "brightdata"
+      };
+
     } else {
       return {
         success: false,
-        error: 'Invalid action. Must be either "search" or "fetch".'
+        error: 'Invalid action. Must be either "search", "fetch", or "download_image".'
       };
     }
   } catch (error) {
