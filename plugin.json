@@ -5,7 +5,7 @@
   "title": "BrightData Web Fetcher",
   "emoji": "🌐",
   "iconURL": "",
-  "description": "Search Google or fetch web content using BrightData APIs. Use `gl` for country and `hl` for language. Supports up to 20 parallel search queries or URLs per request.",
+  "description": "Search Google or fetch web content using BrightData APIs. Use `gl` for country and `hl` for language. Supports up to 15 parallel search queries with intelligent expansion (10 results each) or up to 150 URLs per request.",
   "userSettings": [
     {
       "name": "serpApiKey",
@@ -59,7 +59,7 @@
   ],
   "openaiSpec": {
     "name": "brightdata_web_fetcher",
-    "description": "Search Google (SERP API, use gl/country and hl/language for localization; supports up to 20 queries) or fetch content from up to 20 URLs in parallel (Web Unlocker API).",
+    "description": "Search Google (SERP API with intelligent query expansion, use gl/country and hl/language for localization; supports up to 15 search queries with 10 results each) or fetch content from up to 150 URLs in parallel (Web Unlocker API). Extracts content with AI processing for HTML files.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -69,12 +69,16 @@
             "search",
             "fetch"
           ],
-          "description": "'search': Google search (SERP API); 'fetch': web/page fetch (Web Unlocker API)"
+          "description": "'search': Google search with intelligent expansion (SERP API, max 15 queries); 'fetch': web/page fetch (Web Unlocker API, max 150 URLs)"
         },
         "query": {
           "type": ["string", "array"],
           "items": { "type": "string" },
-          "description": "Search query or array of queries (max 20, required when action is 'search')."
+          "description": "Search query or array of queries (max 15 total including AI expansions, required when action is 'search'). AI will automatically expand with related queries."
+        },
+        "context_question": {
+          "type": "string",
+          "description": "The original user question or context to focus content extraction on relevant information only. Helps reduce token usage by filtering irrelevant content."
         },
         "tbm": {
           "type": "string",
@@ -90,11 +94,11 @@
         },
         "gl": {
           "type": "string",
-          "description": "Google 'gl' parameter: country code for localization. Choose from Google's supported gl values."
+          "description": "Google 'gl' parameter: country code for localization. Choose from Google's supported gl values. AI will auto-detect if not specified."
         },
         "hl": {
           "type": "string",
-          "description": "Google 'hl' parameter: interface language code. Choose from Google's supported hl values."
+          "description": "Google 'hl' parameter: interface language code. Choose from Google's supported hl values. AI will auto-detect if not specified."
         },
         "start": {
           "type": "integer",
@@ -102,14 +106,14 @@
         },
         "num": {
           "type": "integer",
-          "description": "Number of results to return per query. Default is 20."
+          "description": "Number of results to return per query. Default is 10."
         },
         "url": {
           "type": ["string", "array"],
           "items": {
             "type": "string"
           },
-          "description": "Single URL or array of URLs (max 20) to fetch with Web Unlocker. Supports HTML/JSON/XML/JavaScript/CSS/text (cleaned if HTML)."
+          "description": "Single URL or array of URLs (max 150) to fetch with Web Unlocker. Supports HTML/JSON/XML/JavaScript/CSS/text. HTML content is processed with AI."
         }
       },
       "required": [
