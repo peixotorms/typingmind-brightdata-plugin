@@ -59,7 +59,7 @@
   ],
   "openaiSpec": {
     "name": "brightdata_web_fetcher",
-    "description": "Search Google using BrightData SERP API or fetch webpage content using BrightData Web Unlocker API. Returns structured search results with source name, title, excerpt, and URL; for HTML pages returns AI-extracted clean article content; for JSON/XML/JavaScript/CSS/text files returns raw content as-is; errors for unsupported binary file types.",
+    "description": "Search Google using BrightData SERP API or fetch webpage content using BrightData Web Unlocker API. Intelligently choose appropriate gl (country) and hl (language) parameters for localized research. Always respond in the user's language while accessing the best local content.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -89,11 +89,11 @@
         },
         "gl": {
           "type": "string",
-          "description": "Two-letter country code for search localization (e.g., 'us', 'uk', 'ca'). Defines the country of search."
+          "description": "Two-letter country code for search localization. Choose strategically from available Google country codes."
         },
         "hl": {
           "type": "string",
-          "description": "Two-letter language code for search localization (e.g., 'en', 'es', 'fr'). Defines the page language."
+          "description": "Language interface code. Choose strategically from available Google language codes."
         },
         "start": {
           "type": "integer",

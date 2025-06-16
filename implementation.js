@@ -21,6 +21,41 @@ async function brightdata_web_fetcher(params, userSettings) {
       openaiModel = 'gpt-4.1-mini'
     } = userSettings;
 
+    // Google GL (country) parameter options
+    const GOOGLE_GL_OPTIONS = [
+      "af", "al", "dz", "as", "ad", "ao", "ai", "aq", "ag", "ar", "am", "aw", "au", "at", "az", 
+      "bs", "bh", "bd", "bb", "by", "be", "bz", "bj", "bm", "bt", "bo", "ba", "bw", "bv", "br", 
+      "io", "bn", "bg", "bf", "bi", "kh", "cm", "ca", "cv", "ky", "cf", "td", "cl", "cn", "cx", 
+      "cc", "co", "km", "cg", "cd", "ck", "cr", "ci", "hr", "cu", "cy", "cz", "dk", "dj", "dm", 
+      "do", "ec", "eg", "sv", "gq", "er", "ee", "et", "fk", "fo", "fj", "fi", "fr", "gf", "pf", 
+      "tf", "ga", "gm", "ge", "de", "gh", "gi", "gr", "gl", "gd", "gp", "gu", "gt", "gn", "gw", 
+      "gy", "ht", "hm", "va", "hn", "hk", "hu", "is", "in", "id", "ir", "iq", "ie", "il", "it", 
+      "jm", "jp", "jo", "kz", "ke", "ki", "kp", "kr", "kw", "kg", "la", "lv", "lb", "ls", "lr", 
+      "ly", "li", "lt", "lu", "mo", "mk", "mg", "mw", "my", "mv", "ml", "mt", "mh", "mq", "mr", 
+      "mu", "yt", "mx", "fm", "md", "mc", "mn", "ms", "ma", "mz", "mm", "na", "nr", "np", "nl", 
+      "nc", "nz", "ni", "ne", "ng", "nu", "nf", "mp", "no", "om", "pk", "pw", "ps", "pa", "pg", 
+      "py", "pe", "ph", "pn", "pl", "pt", "pr", "qa", "re", "ro", "ru", "rw", "sh", "kn", "lc", 
+      "pm", "vc", "ws", "sm", "st", "sa", "sn", "rs", "sc", "sl", "sg", "sk", "si", "sb", "so", 
+      "za", "gs", "es", "lk", "sd", "sr", "sj", "sz", "se", "ch", "sy", "tw", "tj", "tz", "th", 
+      "tl", "tg", "tk", "to", "tt", "tn", "tr", "tm", "tc", "tv", "ug", "ua", "ae", "uk", "gb", 
+      "us", "um", "uy", "uz", "vu", "ve", "vn", "vg", "vi", "wf", "eh", "ye", "zm", "zw", "gg", 
+      "je", "im", "me"
+    ];
+
+    // Google HL (language) parameter options  
+    const GOOGLE_HL_OPTIONS = [
+      "af", "ak", "sq", "am", "ar", "hy", "az", "eu", "be", "bem", "bn", "bh", "bs", "br", "bg", 
+      "km", "ca", "chr", "ny", "zh-cn", "zh-tw", "co", "hr", "cs", "da", "nl", "en", "eo", "et", 
+      "ee", "fo", "tl", "fi", "fr", "fy", "gaa", "gl", "ka", "de", "el", "kl", "gn", "gu", "ht", 
+      "ha", "haw", "iw", "hi", "hu", "is", "ig", "id", "ia", "ga", "it", "ja", "jw", "kn", "kk", 
+      "rw", "rn", "kg", "ko", "kri", "ku", "ckb", "ky", "lo", "la", "lv", "ln", "lt", "loz", "lg", 
+      "ach", "mk", "mg", "my", "ms", "ml", "mt", "mv", "mi", "mr", "mfe", "mo", "mn", "sr-me", "ne", 
+      "pcm", "nso", "no", "nn", "oc", "or", "om", "ps", "fa", "pl", "pt", "pt-br", "pt-pt", "pa", 
+      "qu", "ro", "rm", "nyn", "ru", "gd", "sr", "sh", "st", "tn", "crs", "sn", "sd", "si", "sk", 
+      "sl", "so", "es", "es-419", "su", "sw", "sv", "tg", "ta", "tt", "te", "th", "ti", "to", "lua", 
+      "tum", "tr", "tk", "tw", "ug", "uk", "ur", "uz", "vu", "vi", "cy", "wo", "xh", "yi", "yo", "zu"
+    ];
+
     // Helper function to extract body content from HTML
     function extractBodyContent(html) {
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
@@ -117,7 +152,7 @@ async function brightdata_web_fetcher(params, userSettings) {
         JSON.parse(content);
         return 'json';
       } catch (e) {
-        // Not JSON
+        // Not JSON, continue
       }
 
       // Check for XML patterns
@@ -125,19 +160,8 @@ async function brightdata_web_fetcher(params, userSettings) {
         return 'xml';
       }
 
-      // If content type indicates binary or unsupported format
-      if (contentTypeLower.includes('image/') || 
-          contentTypeLower.includes('video/') || 
-          contentTypeLower.includes('audio/') || 
-          contentTypeLower.includes('application/pdf') || 
-          contentTypeLower.includes('application/octet-stream') || 
-          contentTypeLower.includes('application/zip') || 
-          contentTypeLower.includes('application/x-')) {
-        return 'unsupported';
-      }
-
-      // Default to text if it seems like readable content
-      return 'text';
+      // If we get here, it's not one of our supported types
+      return 'unsupported';
     }
 
     // Helper function to build Google search URL with parameters
@@ -213,8 +237,8 @@ async function brightdata_web_fetcher(params, userSettings) {
       "additionalProperties": false
     };
 
-    // JSON schema for article content
-    const articleContentSchema = {
+    // JSON schema for content
+    const contentSchema = {
       "type": "object",
       "properties": {
         "data": {
@@ -222,11 +246,11 @@ async function brightdata_web_fetcher(params, userSettings) {
           "properties": {
             "title": {
               "type": ["string", "null"],
-              "description": "Main article headline"
+              "description": "Main content headline or title"
             },
             "content": {
               "type": ["string", "null"],
-              "description": "Clean text content of the main article body without HTML tags, line breaks, or non-essential information"
+              "description": "Clean text content of the main body without HTML tags, line breaks, or non-essential information"
             },
             "target_research": {
               "type": ["string", "null"],
@@ -252,10 +276,16 @@ async function brightdata_web_fetcher(params, userSettings) {
       if (actionType === 'search') {
         prompt = `Extract search results from this Google search HTML content for the query: "${query}". 
 
+IMPORTANT: Respond in the same language as the user's query. If content is in other languages, translate titles and excerpts to match the user's language while preserving important original terms in parentheses when relevant.
+
+REFERENCE: Available Google search parameters for future use:
+- gl (country localization): ${GOOGLE_GL_OPTIONS.join(', ')}
+- hl (interface language): ${GOOGLE_HL_OPTIONS.join(', ')}
+
 Find all search results and extract exactly what you see:
 - source_name: The source name acronym, name, or domain name (e.g., CNN, BBC, Microsoft, "wikipedia.org", "example.com")
-- title: The clickable title/headline of each result
-- excerpt: The description or snippet text below the title
+- title: The clickable title/headline (translate to user's language if needed, show original key terms in parentheses if relevant)
+- excerpt: The description or snippet text (translate to user's language if needed)
 - url: The complete destination URL without recognizable tracking codes
 
 Return only what is actually present in the search results. Do not invent or summarize.
@@ -271,22 +301,24 @@ ${content}`;
           }
         };
       } else if (actionType === 'fetch') {
-        prompt = `Extract the main content from the HTML:
-1. Identify and extract ONLY the main article/content body as clean text.
-2. Remove all navigation, ads, sidebars, suggested articles, copyright notices, social media buttons, comments, suggestions for following, subscribing or reading more about different topics, footers, content unrelated to the main content, or any non-essential information.
-3. Preserve <pre>, <code> HTml tags, but remove all other HTML tags and links to return plain text.
+        prompt = `Extract the main content from the HTML and respond in the same language as the user would expect (default to English if unclear).
+
+1. Identify and extract ONLY the main content body as clean text.
+2. Remove all navigation, ads, sidebars, suggested content, copyright notices, social media buttons, comments, suggestions for following, subscribing or reading more about different topics, footers, content unrelated to the main content, or any non-essential information.
+3. Preserve <pre>, <code> HTML tags, but remove all other HTML tags and links to return plain text.
 4. Remove all line breaks such as \\n or \\r\\n.
 5. Focus only on the core readable content that a user would want to read.
-6. Generate a targeted research query (2-10 words) based on the main topic that would help find additional information about this story.
+6. If content is in a different language than expected, translate to the user's expected language while preserving important original terms in parentheses when relevant.
+7. Generate a targeted research query (2-10 words) based on the main topic that would help find additional information about this content.
 
 HTML Content:
 ${content}`;
         responseFormat = {
           type: "json_schema",
           json_schema: {
-            name: "article_content",
+            name: "content",
             strict: true,
-            schema: articleContentSchema
+            schema: contentSchema
           }
         };
       }
