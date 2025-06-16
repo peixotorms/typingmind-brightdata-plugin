@@ -163,8 +163,19 @@ async function brightdata_web_fetcher(params, userSettings) {
       return `${baseUrl}?${params.toString()}`;
     }
 
+    // Helper function to extract base URL (everything before the # fragment)
+    function getBaseUrl(url) {
+      if (!url || typeof url !== 'string') return url;
+      const hashIndex = url.indexOf('#');
+      return hashIndex === -1 ? url : url.substring(0, hashIndex);
+    }
+
     // Step 1: Generate search queries with geographic targeting
     async function generateSearchQueries(originalQuery, contextQuestion) {
+      console.log('🔍 STEP 1: Generating search queries and detecting geographic targeting...');
+      console.log(`📋 Original query: "${originalQuery}"`);
+      console.log(`❓ Context: "${contextQuestion || 'General research'}"`);
+      
       const prompt = `Analyze this search query and generate optimized Google search parameters and related queries:
 
 Original Query: "${originalQuery}"
@@ -209,13 +220,21 @@ Generate diverse, specific queries that will capture comprehensive information a
       const content = result.choices[0]?.message?.content;
       if (!content) throw new Error('No response generated from OpenAI');
       
-      return JSON.parse(content);
+      const parsedResult = JSON.parse(content);
+      console.log(`🌍 Detected geographic targeting: gl="${parsedResult.gl}", hl="${parsedResult.hl}"`);
+      console.log(`📝 Generated ${parsedResult.search_queries.length} search queries`);
+      
+      return parsedResult;
     }
 
     // Step 2: Execute searches in parallel and extract results
     async function executeSearches(searchQueries, searchParams) {
+      console.log(`\n🔎 STEP 2: Executing ${searchQueries.length} searches in parallel...`);
+      
       const searchPromises = searchQueries.map(async (query, index) => {
         try {
+          console.log(`   → Search ${index + 1}/${searchQueries.length}: "${query}"`);
+          
           const searchUrl = buildGoogleSearchUrl(query, searchParams);
           const response = await fetch('https://api.brightdata.com/request', {
             method: 'POST',
@@ -225,12 +244,15 @@ Generate diverse, specific queries that will capture comprehensive information a
 
           if (!response.ok) {
             const errorText = await response.text();
+            console.log(`   ❌ Search ${index + 1} failed: ${response.status}`);
             return { query, index, success: false, error: `BrightData SERP API error (${response.status}): ${errorText}` };
           }
 
           const htmlResult = await response.text();
           const bodyContent = extractBodyContent(htmlResult);
 
+          console.log(`   ⚙️  Extracting results from search ${index + 1}...`);
+          
           const extractPrompt = `Extract search results from this Google search HTML content for the query: "${query}". 
 
 Extract all real search results (do not invent or summarize). Maintain original URLs without modification.
@@ -253,16 +275,21 @@ ${bodyContent}`;
           });
 
           if (!extractResponse.ok) {
+            console.log(`   ❌ Search ${index + 1} extraction failed: ${extractResponse.status}`);
             return { query, index, success: false, error: `OpenAI extraction error: ${extractResponse.status}` };
           }
 
           const extractResult = await extractResponse.json();
           const extractedContent = extractResult.choices[0]?.message?.content;
           if (!extractedContent) {
+            console.log(`   ❌ Search ${index + 1} no extraction result`);
             return { query, index, success: false, error: 'No extraction result from OpenAI' };
           }
 
           const parsedResults = JSON.parse(extractedContent);
+          const resultCount = parsedResults.search_results?.length || 0;
+          console.log(`   ✅ Search ${index + 1} completed: ${resultCount} results found`);
+          
           return {
             query,
             index,
@@ -271,32 +298,52 @@ ${bodyContent}`;
           };
 
         } catch (error) {
+          console.log(`   ❌ Search ${index + 1} error: ${error.message}`);
           return { query, index, success: false, error: `Search error: ${error.message}` };
         }
       });
 
-      return Promise.all(searchPromises);
+      const results = await Promise.all(searchPromises);
+      const successfulSearches = results.filter(r => r.success).length;
+      const totalResults = results.reduce((sum, r) => sum + (r.results?.length || 0), 0);
+      
+      console.log(`🎯 Search phase completed: ${successfulSearches}/${searchQueries.length} searches successful, ${totalResults} total results found`);
+      
+      return results;
     }
 
     // Step 3: Deduplicate and select relevant URLs
     async function selectRelevantUrls(allSearchResults, originalQuery, contextQuestion) {
-      const seenUrls = new Set();
+      console.log(`\n🔗 STEP 3: Deduplicating and selecting relevant URLs...`);
+      
+      const seenBaseUrls = new Set();
       const uniqueResults = [];
+      let duplicatesRemoved = 0;
 
       allSearchResults.forEach(searchResult => {
         if (searchResult.success && searchResult.results) {
           searchResult.results.forEach(result => {
-            if (result.url && !seenUrls.has(result.url)) {
-              seenUrls.add(result.url);
-              uniqueResults.push(result);
+            if (result.url) {
+              const baseUrl = getBaseUrl(result.url);
+              if (!seenBaseUrls.has(baseUrl)) {
+                seenBaseUrls.add(baseUrl);
+                uniqueResults.push(result);
+              } else {
+                duplicatesRemoved++;
+              }
             }
           });
         }
       });
 
+      console.log(`📊 Found ${uniqueResults.length} unique URLs after deduplication (removed ${duplicatesRemoved} duplicates based on base URL)`);
+
       if (uniqueResults.length === 0) {
+        console.log(`⚠️  No URLs found - returning empty selection`);
         return { selected_urls: [] };
       }
+
+      console.log(`🤖 Using AI to select most relevant URLs for research...`);
 
       const selectionPrompt = `Select the most relevant URLs for comprehensive research on this topic:
 
@@ -350,19 +397,31 @@ Return only the selected URLs as an array of strings.`;
         throw new Error('No URL selection result from OpenAI');
       }
 
-      return JSON.parse(selectionContent);
+      const selectedUrls = JSON.parse(selectionContent);
+      console.log(`✅ Selected ${selectedUrls.selected_urls.length} URLs for content fetching`);
+      
+      return selectedUrls;
     }
 
     // Step 4: Fetch URLs in batches of 10
     async function fetchUrlsInBatches(selectedUrls) {
+      console.log(`\n📄 STEP 4: Fetching content from ${selectedUrls.length} URLs in batches of 10...`);
+      
       const research_data = [];
       const batchSize = 10;
+      const totalBatches = Math.ceil(selectedUrls.length / batchSize);
 
       for (let i = 0; i < selectedUrls.length; i += batchSize) {
+        const batchNum = Math.floor(i / batchSize) + 1;
         const batch = selectedUrls.slice(i, i + batchSize);
         
-        const batchPromises = batch.map(async (targetUrl) => {
+        console.log(`📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} URLs)...`);
+        
+        const batchPromises = batch.map(async (targetUrl, batchIndex) => {
+          const globalIndex = i + batchIndex + 1;
           try {
+            console.log(`   → Fetching ${globalIndex}/${selectedUrls.length}: ${targetUrl.substring(0, 80)}...`);
+            
             const response = await fetch('https://api.brightdata.com/request', {
               method: 'POST',
               headers: {
@@ -374,6 +433,7 @@ Return only the selected URLs as an array of strings.`;
 
             if (!response.ok) {
               const errorText = await response.text();
+              console.log(`   ❌ Fetch ${globalIndex} failed: ${response.status}`);
               return {
                 url: targetUrl,
                 content: null
@@ -385,6 +445,7 @@ Return only the selected URLs as an array of strings.`;
             const processingType = getContentProcessingType(rawContent, contentType, targetUrl);
 
             if (processingType === 'html') {
+              console.log(`   ⚙️  Processing HTML content ${globalIndex}...`);
               const bodyContent = extractBodyContent(rawContent);
               
               const extractPrompt = `Extract the main content from this HTML webpage.
@@ -419,6 +480,7 @@ ${bodyContent}`;
                 const extractedContent = extractResult.choices[0]?.message?.content;
                 if (extractedContent) {
                   const parsedContent = JSON.parse(extractedContent);
+                  console.log(`   ✅ Content ${globalIndex} processed successfully`);
                   return {
                     url: targetUrl,
                     content: parsedContent.data.content
@@ -426,11 +488,13 @@ ${bodyContent}`;
                 }
               }
 
+              console.log(`   ⚠️  Content ${globalIndex} using fallback processing`);
               return {
                 url: targetUrl,
                 content: bodyContent.substring(0, 10000)
               };
             } else {
+              console.log(`   ✅ Content ${globalIndex} fetched (${processingType})`);
               return {
                 url: targetUrl,
                 content: rawContent
@@ -438,6 +502,7 @@ ${bodyContent}`;
             }
 
           } catch (error) {
+            console.log(`   ❌ Content ${globalIndex} error: ${error.message}`);
             return {
               url: targetUrl,
               content: null
@@ -447,8 +512,14 @@ ${bodyContent}`;
 
         const batchResults = await Promise.all(batchPromises);
         research_data.push(...batchResults);
+        
+        const successfulInBatch = batchResults.filter(r => r.content !== null).length;
+        console.log(`   ✅ Batch ${batchNum} completed: ${successfulInBatch}/${batch.length} successful`);
       }
 
+      const totalSuccessful = research_data.filter(r => r.content !== null).length;
+      console.log(`🎉 Content fetching completed: ${totalSuccessful}/${selectedUrls.length} URLs successfully processed`);
+      
       return research_data;
     }
 
@@ -464,6 +535,9 @@ ${bodyContent}`;
         return { success: false, error: 'Query is required for search action.' };
 
       try {
+        console.log('🚀 Starting comprehensive web research workflow...');
+        console.log('=' .repeat(60));
+        
         // Step 1: Generate search queries and detect targeting
         const queryGeneration = await generateSearchQueries(query, context_question);
         
@@ -483,12 +557,17 @@ ${bodyContent}`;
         // Step 4: Fetch content from selected URLs
         const research_data = await fetchUrlsInBatches(urlSelection.selected_urls);
 
+        console.log('=' .repeat(60));
+        console.log('🎯 Research workflow completed successfully!');
+        console.log(`📊 Final results: ${research_data.length} URLs processed`);
+        
         return {
           success: true,
           research_data
         };
 
       } catch (error) {
+        console.log(`❌ Search workflow error: ${error.message}`);
         return { success: false, error: `Search workflow error: ${error.message}` };
       }
 
@@ -501,8 +580,12 @@ ${bodyContent}`;
       const urls = Array.isArray(url) ? url : [url];
       const results = [];
 
+      console.log(`🔗 Starting direct URL fetch for ${urls.length} URL(s)...`);
+
       for (const targetUrl of urls) {
         try {
+          console.log(`→ Fetching: ${targetUrl}`);
+          
           const response = await fetch('https://api.brightdata.com/request', {
             method: 'POST',
             headers: {
@@ -514,6 +597,7 @@ ${bodyContent}`;
 
           if (!response.ok) {
             const errorText = await response.text();
+            console.log(`❌ Fetch failed: ${response.status}`);
             results.push({
               url: targetUrl,
               success: false,
@@ -527,6 +611,7 @@ ${bodyContent}`;
           const processingType = getContentProcessingType(rawContent, contentType, targetUrl);
 
           if (processingType === 'html') {
+            console.log(`⚙️  Processing HTML content...`);
             const bodyContent = extractBodyContent(rawContent);
             if (openaiApiKey) {
               try {
@@ -562,6 +647,7 @@ ${bodyContent}`;
                   const extractedContent = extractResult.choices[0]?.message?.content;
                   if (extractedContent) {
                     const parsedContent = JSON.parse(extractedContent);
+                    console.log(`✅ Content processed successfully`);
                     results.push({
                       url: targetUrl,
                       success: true,
@@ -572,10 +658,12 @@ ${bodyContent}`;
                   }
                 }
               } catch (aiError) {
+                console.log(`⚠️  AI processing failed, using fallback`);
                 // Fall back to raw content if AI processing fails
               }
             }
             
+            console.log(`✅ Content fetched (fallback processing)`);
             results.push({
               url: targetUrl,
               success: true,
@@ -588,6 +676,7 @@ ${bodyContent}`;
               content_type: "html"
             });
           } else {
+            console.log(`✅ Content fetched (${processingType})`);
             results.push({
               url: targetUrl,
               success: true,
@@ -602,6 +691,7 @@ ${bodyContent}`;
           }
 
         } catch (error) {
+          console.log(`❌ Fetch error: ${error.message}`);
           results.push({
             url: targetUrl,
             success: false,
@@ -609,6 +699,8 @@ ${bodyContent}`;
           });
         }
       }
+
+      console.log(`🎯 Direct fetch completed: ${results.filter(r => r.success).length}/${urls.length} successful`);
 
       return Array.isArray(url) ? {
         success: true,
@@ -621,6 +713,7 @@ ${bodyContent}`;
     }
 
   } catch (error) {
+    console.log(`💥 Unexpected error: ${error.message}`);
     return { success: false, error: `Unexpected error: ${error.message}` };
   }
 }
