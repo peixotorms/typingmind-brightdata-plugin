@@ -1,35 +1,69 @@
 ## BrightData Web Fetcher — TypingMind Plugin
 
-Automatically search or fetch web content using BrightData APIs (SERP & Web Unlocker) based on natural language instructions and parse the large HTML response through OpenAI to extract relevant json data.
+Automatically search or fetch web content using BrightData APIs (SERP & Web Unlocker) based on natural language instructions and parse large HTML or structured responses through OpenAI to extract relevant, clean JSON data.
 
 ## Features
 
-- **Natural‑language Web Search**: Ask the AI to search for something (e.g. "Search for the latest AI news") and it will use the BrightData SERP API to search and then parse the large HTML response through OpenAI to extract the search results as json.
-- **Webpage Fetching**: Provide a URL (e.g. "Read this article: https://example.com") and the AI will fetch and read the page via BrightData Web Unlocker API and then parse the large HTML response through OpenAI to extract the search results as json.
-- **Multiple Search Types**: Supports `web`, `news`, `images`, `videos`, `shopping`, and `scholar`.
-- **No Commands Needed**: AI infers when to search vs. fetch based on your request—no slash‑commands.
-- **Secure, Separate Settings**: Configure SERP API key/zone and Unlocker API key/zone independently.
+- **Parallel Web Search & Fetch**  
+  Search Google using BrightData SERP API (multiple queries in parallel), or fetch webpage content with Web Unlocker API (multiple URLs in parallel).
+
+- **Full Google `gl` and `hl` RAG Support**  
+  Uses all Google-supported `gl` (country) and `hl` (language) codes for precise localization and retrieval-augmented generation (RAG). The AI is aware it can use any supported value.
+
+- **Content Extraction for All Web Content**  
+  For HTML, uses OpenAI to extract only the main readable content as structured JSON (works for articles, docs, blogs, forums, etc). For JSON, XML, JS, CSS, or plain text, returns the raw content as-is.
+
+- **Minimal Commands**  
+  Plain, natural language instructions (“find Paris climate news”), handled contextually without the need for explicit commands.
+
+- **Advanced Pagination & Filtering**  
+  Supports `start`, `num`, `tbm` (news/shopping), and job search with `ibp`. Combine as needed for advanced queries.
+
+- **Highly Efficient for Research**  
+  Parallelizes OpenAI extraction calls for fast processing of many URLs or searches.
+
+- **Secure & Modular**  
+  Separate SERP and Web Unlocker keys/zones, and secure OpenAI key management.
 
 ## OpenAI
 
-- **Why do we parse the results via OpenAI?**: When we fetch an article, then perform search results and access each result, the combined HTML data can easily exceed the context window in most models. To avoid that, we parse each HTML page via OpenAI to extract only the minimum required information, before feeding it to the chat window for further processing, thus lowering the requirements for the context window.
-- **Which models are recommended**: The plugin limits the models to those with higher context windows to ensure that there is enough context to process each search result in case of detailed research.
+- **Why Use OpenAI for Extraction?**  
+  Large web pages and search result HTML can exceed model context windows. This plugin parses and extracts only the structured, important content via OpenAI before handing results to the chat, minimizing context/token usage.
+
+- **Best Models**  
+  Defaults to high-context models (like `gpt-4.1-mini`) for reliability with large or complex results.
 
 ## Setup
 
-1. In TypingMind, go to **Plugins → Import plugins → GitHub URL**, and paste the repo URL.
-2. Open the plugin's **Settings** and enter:
+1. In TypingMind, go to **Plugins → Import plugins → GitHub URL**, and paste the repo URL (or upload plugin scripts).
+2. Open plugin **Settings** and provide:
    - **BrightData SERP API Key**
-   - **SERP Zone ID** 
+   - **SERP Zone ID**
    - **BrightData Web Unlocker API Key**
-   - **Web Unlocker Zone ID** 
+   - **Web Unlocker Zone ID**
    - **OpenAI API Key**
-   - **OpenAI Model**
-3. Chat naturally—ask it to search or fetch pages and enjoy live web results!
+   - **OpenAI Model** to use
+3. Start your research! Ask natural-language questions—the plugin handles all search/fetch actions and delivers clean, readable, local-language-aware results.
 
 ## Requirements
 
-- BrightData account with SERP & Web Unlocker access with enough credit.
-- Valid BrightData API Keys and Zone IDs.
-- Valid OpenAI API Key with enough credit.
-- Selection of the default OpenAI model for cleaning up the HTML responses.
+- BrightData account with SERP & Web Unlocker access and sufficient credit.
+- Valid BrightData API keys and zone IDs.
+- Valid OpenAI API Key and sufficient credit.
+- TypingMind platform with plugin support.
+
+## Supported Parameters
+
+- **action**: `"search"` (Google SERP API) or `"fetch"` (Web Unlocker API)
+- **query**: Single query **OR** multiple queries (array) for searching in parallel
+- **url**: Single URL **OR** multiple URLs (array) for fetching in parallel
+- **tbm**: `"nws"` (news), `"shop"` (shopping)
+- **ibp**: `"htl;jobs"` for jobs
+- **gl**: Any valid Google [country code](https://developers.google.com/custom-search/docs/xml_results_appendices#countryCodes)
+- **hl**: Any valid Google [language code](https://developers.google.com/custom-search/docs/xml_results_appendices#languages)
+- **start**: Results offset (pagination)
+- **num**: Number of results per query
+
+The RAG (retrieval-augmented generation) coverage includes **all Google-supported gl and hl codes**.
+
+---
