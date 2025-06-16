@@ -5,7 +5,7 @@
   "title": "BrightData Web Fetcher",
   "emoji": "🌐",
   "iconURL": "",
-  "description": "Search Google or fetch web content using BrightData APIs. AI automatically detects target country and language from available Google parameters. Supports up to 15 search queries (10 results each) or 150 URLs.",
+  "description": "Search Google with AI-powered geographic and language detection, or fetch web content directly. For searches: AI detects target country/language, generates search queries, executes parallel searches, selects relevant URLs, and fetches content in batches.",
   "userSettings": [
     {
       "name": "serpApiKey",
@@ -59,7 +59,7 @@
   ],
   "openaiSpec": {
     "name": "brightdata_web_fetcher",
-    "description": "Search Google or fetch web content with AI-powered country and language detection. AI chooses optimal gl/hl parameters from Google's available options. Supports up to 15 search queries (10 results each) or 150 URLs.",
+    "description": "Search Google with intelligent targeting or fetch web content. For searches: AI detects target country/language, generates relevant search queries, executes parallel searches, selects best URLs, and fetches content. For direct fetching: extract content from specified URLs.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -69,16 +69,15 @@
             "search",
             "fetch"
           ],
-          "description": "'search': Google search with AI country/language detection (max 15 queries); 'fetch': web/page fetch (max 150 URLs)"
+          "description": "'search': AI-powered Google search with content fetching pipeline; 'fetch': direct URL content extraction"
         },
         "query": {
-          "type": ["string", "array"],
-          "items": { "type": "string" },
-          "description": "Search query or array of queries. AI will expand with related queries in the detected target language."
+          "type": "string",
+          "description": "Search query for 'search' action. AI will detect geographic focus, generate related queries in target language, and execute comprehensive research."
         },
         "context_question": {
           "type": "string",
-          "description": "The original user question or context to help AI determine target country/language and focus content extraction."
+          "description": "The original user question or context to help AI determine research focus, target country/language, and content relevance."
         },
         "tbm": {
           "type": "string",
@@ -94,26 +93,18 @@
         },
         "gl": {
           "type": "string",
-          "description": "Google 'gl' parameter: country code. AI will auto-detect from query context if not specified."
+          "description": "Override Google 'gl' parameter: country code. AI will auto-detect if not specified."
         },
         "hl": {
           "type": "string",
-          "description": "Google 'hl' parameter: language code. AI will auto-detect appropriate language if not specified."
-        },
-        "start": {
-          "type": "integer",
-          "description": "Pagination result offset. 0 (default), 20 for second page, 40 for third, etc."
-        },
-        "num": {
-          "type": "integer",
-          "description": "Number of results to return per query. Default is 10."
+          "description": "Override Google 'hl' parameter: language code. AI will auto-detect if not specified."
         },
         "url": {
           "type": ["string", "array"],
           "items": {
             "type": "string"
           },
-          "description": "Single URL or array of URLs (max 150) to fetch. AI determines processing language based on query context."
+          "description": "URL or array of URLs for 'fetch' action. Extracts content directly without searching."
         }
       },
       "required": [

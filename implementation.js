@@ -8,8 +8,6 @@ async function brightdata_web_fetcher(params, userSettings) {
       ibp, 
       gl, 
       hl, 
-      start, 
-      num, 
       url 
     } = params;
     const {
@@ -21,61 +19,95 @@ async function brightdata_web_fetcher(params, userSettings) {
       openaiModel = 'gpt-4.1-mini'
     } = userSettings;
 
-    // Separate limits for searches and URL fetches
-    const MAX_SEARCH_QUERIES = 15;
-    const MAX_FETCH_URLS = 150;
-
-    // Google GL (country) parameter options
-    const GOOGLE_GL_OPTIONS = [
-      "af", "al", "dz", "as", "ad", "ao", "ai", "aq", "ag", "ar", "am", "aw", "au", "at", "az", 
-      "bs", "bh", "bd", "bb", "by", "be", "bz", "bj", "bm", "bt", "bo", "ba", "bw", "bv", "br", 
-      "io", "bn", "bg", "bf", "bi", "kh", "cm", "ca", "cv", "ky", "cf", "td", "cl", "cn", "cx", 
-      "cc", "co", "km", "cg", "cd", "ck", "cr", "ci", "hr", "cu", "cy", "cz", "dk", "dj", "dm", 
-      "do", "ec", "eg", "sv", "gq", "er", "ee", "et", "fk", "fo", "fj", "fi", "fr", "gf", "pf", 
-      "tf", "ga", "gm", "ge", "de", "gh", "gi", "gr", "gl", "gd", "gp", "gu", "gt", "gn", "gw", 
-      "gy", "ht", "hm", "va", "hn", "hk", "hu", "is", "in", "id", "ir", "iq", "ie", "il", "it", 
-      "jm", "jp", "jo", "kz", "ke", "ki", "kp", "kr", "kw", "kg", "la", "lv", "lb", "ls", "lr", 
-      "ly", "li", "lt", "lu", "mo", "mk", "mg", "mw", "my", "mv", "ml", "mt", "mh", "mq", "mr", 
-      "mu", "yt", "mx", "fm", "md", "mc", "mn", "ms", "ma", "mz", "mm", "na", "nr", "np", "nl", 
-      "nc", "nz", "ni", "ne", "ng", "nu", "nf", "mp", "no", "om", "pk", "pw", "ps", "pa", "pg", 
-      "py", "pe", "ph", "pn", "pl", "pt", "pr", "qa", "re", "ro", "ru", "rw", "sh", "kn", "lc", 
-      "pm", "vc", "ws", "sm", "st", "sa", "sn", "rs", "sc", "sl", "sg", "sk", "si", "sb", "so", 
-      "za", "gs", "es", "lk", "sd", "sr", "sj", "sz", "se", "ch", "sy", "tw", "tj", "tz", "th", 
-      "tl", "tg", "tk", "to", "tt", "tn", "tr", "tm", "tc", "tv", "ug", "ua", "ae", "uk", "gb", 
-      "us", "um", "uy", "uz", "vu", "ve", "vn", "vg", "vi", "wf", "eh", "ye", "zm", "zw", "gg", 
-      "je", "im", "me"
+    // Google country codes from provided JSON
+    const GOOGLE_COUNTRIES = [
+      {"country_code": "af", "country_name": "Afghanistan"}, {"country_code": "al", "country_name": "Albania"}, {"country_code": "dz", "country_name": "Algeria"}, {"country_code": "as", "country_name": "American Samoa"}, {"country_code": "ad", "country_name": "Andorra"}, {"country_code": "ao", "country_name": "Angola"}, {"country_code": "ai", "country_name": "Anguilla"}, {"country_code": "aq", "country_name": "Antarctica"}, {"country_code": "ag", "country_name": "Antigua and Barbuda"}, {"country_code": "ar", "country_name": "Argentina"}, {"country_code": "am", "country_name": "Armenia"}, {"country_code": "aw", "country_name": "Aruba"}, {"country_code": "au", "country_name": "Australia"}, {"country_code": "at", "country_name": "Austria"}, {"country_code": "az", "country_name": "Azerbaijan"}, {"country_code": "bs", "country_name": "Bahamas"}, {"country_code": "bh", "country_name": "Bahrain"}, {"country_code": "bd", "country_name": "Bangladesh"}, {"country_code": "bb", "country_name": "Barbados"}, {"country_code": "by", "country_name": "Belarus"}, {"country_code": "be", "country_name": "Belgium"}, {"country_code": "bz", "country_name": "Belize"}, {"country_code": "bj", "country_name": "Benin"}, {"country_code": "bm", "country_name": "Bermuda"}, {"country_code": "bt", "country_name": "Bhutan"}, {"country_code": "bo", "country_name": "Bolivia"}, {"country_code": "ba", "country_name": "Bosnia and Herzegovina"}, {"country_code": "bw", "country_name": "Botswana"}, {"country_code": "bv", "country_name": "Bouvet Island"}, {"country_code": "br", "country_name": "Brazil"}, {"country_code": "io", "country_name": "British Indian Ocean Territory"}, {"country_code": "bn", "country_name": "Brunei Darussalam"}, {"country_code": "bg", "country_name": "Bulgaria"}, {"country_code": "bf", "country_name": "Burkina Faso"}, {"country_code": "bi", "country_name": "Burundi"}, {"country_code": "kh", "country_name": "Cambodia"}, {"country_code": "cm", "country_name": "Cameroon"}, {"country_code": "ca", "country_name": "Canada"}, {"country_code": "cv", "country_name": "Cape Verde"}, {"country_code": "ky", "country_name": "Cayman Islands"}, {"country_code": "cf", "country_name": "Central African Republic"}, {"country_code": "td", "country_name": "Chad"}, {"country_code": "cl", "country_name": "Chile"}, {"country_code": "cn", "country_name": "China"}, {"country_code": "cx", "country_name": "Christmas Island"}, {"country_code": "cc", "country_name": "Cocos (Keeling) Islands"}, {"country_code": "co", "country_name": "Colombia"}, {"country_code": "km", "country_name": "Comoros"}, {"country_code": "cg", "country_name": "Congo"}, {"country_code": "cd", "country_name": "Congo, the Democratic Republic of the"}, {"country_code": "ck", "country_name": "Cook Islands"}, {"country_code": "cr", "country_name": "Costa Rica"}, {"country_code": "ci", "country_name": "Cote D'ivoire"}, {"country_code": "hr", "country_name": "Croatia"}, {"country_code": "cu", "country_name": "Cuba"}, {"country_code": "cy", "country_name": "Cyprus"}, {"country_code": "cz", "country_name": "Czech Republic"}, {"country_code": "dk", "country_name": "Denmark"}, {"country_code": "dj", "country_name": "Djibouti"}, {"country_code": "dm", "country_name": "Dominica"}, {"country_code": "do", "country_name": "Dominican Republic"}, {"country_code": "ec", "country_name": "Ecuador"}, {"country_code": "eg", "country_name": "Egypt"}, {"country_code": "sv", "country_name": "El Salvador"}, {"country_code": "gq", "country_name": "Equatorial Guinea"}, {"country_code": "er", "country_name": "Eritrea"}, {"country_code": "ee", "country_name": "Estonia"}, {"country_code": "et", "country_name": "Ethiopia"}, {"country_code": "fk", "country_name": "Falkland Islands (Malvinas)"}, {"country_code": "fo", "country_name": "Faroe Islands"}, {"country_code": "fj", "country_name": "Fiji"}, {"country_code": "fi", "country_name": "Finland"}, {"country_code": "fr", "country_name": "France"}, {"country_code": "gf", "country_name": "French Guiana"}, {"country_code": "pf", "country_name": "French Polynesia"}, {"country_code": "tf", "country_name": "French Southern Territories"}, {"country_code": "ga", "country_name": "Gabon"}, {"country_code": "gm", "country_name": "Gambia"}, {"country_code": "ge", "country_name": "Georgia"}, {"country_code": "de", "country_name": "Germany"}, {"country_code": "gh", "country_name": "Ghana"}, {"country_code": "gi", "country_name": "Gibraltar"}, {"country_code": "gr", "country_name": "Greece"}, {"country_code": "gl", "country_name": "Greenland"}, {"country_code": "gd", "country_name": "Grenada"}, {"country_code": "gp", "country_name": "Guadeloupe"}, {"country_code": "gu", "country_name": "Guam"}, {"country_code": "gt", "country_name": "Guatemala"}, {"country_code": "gn", "country_name": "Guinea"}, {"country_code": "gw", "country_name": "Guinea-Bissau"}, {"country_code": "gy", "country_name": "Guyana"}, {"country_code": "ht", "country_name": "Haiti"}, {"country_code": "hm", "country_name": "Heard Island and Mcdonald Islands"}, {"country_code": "va", "country_name": "Holy See (Vatican City State)"}, {"country_code": "hn", "country_name": "Honduras"}, {"country_code": "hk", "country_name": "Hong Kong"}, {"country_code": "hu", "country_name": "Hungary"}, {"country_code": "is", "country_name": "Iceland"}, {"country_code": "in", "country_name": "India"}, {"country_code": "id", "country_name": "Indonesia"}, {"country_code": "ir", "country_name": "Iran, Islamic Republic of"}, {"country_code": "iq", "country_name": "Iraq"}, {"country_code": "ie", "country_name": "Ireland"}, {"country_code": "il", "country_name": "Israel"}, {"country_code": "it", "country_name": "Italy"}, {"country_code": "jm", "country_name": "Jamaica"}, {"country_code": "jp", "country_name": "Japan"}, {"country_code": "jo", "country_name": "Jordan"}, {"country_code": "kz", "country_name": "Kazakhstan"}, {"country_code": "ke", "country_name": "Kenya"}, {"country_code": "ki", "country_name": "Kiribati"}, {"country_code": "kp", "country_name": "North Korea"}, {"country_code": "kr", "country_name": "South Korea"}, {"country_code": "kw", "country_name": "Kuwait"}, {"country_code": "kg", "country_name": "Kyrgyzstan"}, {"country_code": "la", "country_name": "Lao People's Democratic Republic"}, {"country_code": "lv", "country_name": "Latvia"}, {"country_code": "lb", "country_name": "Lebanon"}, {"country_code": "ls", "country_name": "Lesotho"}, {"country_code": "lr", "country_name": "Liberia"}, {"country_code": "ly", "country_name": "Libya"}, {"country_code": "li", "country_name": "Liechtenstein"}, {"country_code": "lt", "country_name": "Lithuania"}, {"country_code": "lu", "country_name": "Luxembourg"}, {"country_code": "mo", "country_name": "Macao"}, {"country_code": "mk", "country_name": "North Macedonia"}, {"country_code": "mg", "country_name": "Madagascar"}, {"country_code": "mw", "country_name": "Malawi"}, {"country_code": "my", "country_name": "Malaysia"}, {"country_code": "mv", "country_name": "Maldives"}, {"country_code": "ml", "country_name": "Mali"}, {"country_code": "mt", "country_name": "Malta"}, {"country_code": "mh", "country_name": "Marshall Islands"}, {"country_code": "mq", "country_name": "Martinique"}, {"country_code": "mr", "country_name": "Mauritania"}, {"country_code": "mu", "country_name": "Mauritius"}, {"country_code": "yt", "country_name": "Mayotte"}, {"country_code": "mx", "country_name": "Mexico"}, {"country_code": "fm", "country_name": "Micronesia, Federated States of"}, {"country_code": "md", "country_name": "Moldova, Republic of"}, {"country_code": "mc", "country_name": "Monaco"}, {"country_code": "mn", "country_name": "Mongolia"}, {"country_code": "ms", "country_name": "Montserrat"}, {"country_code": "ma", "country_name": "Morocco"}, {"country_code": "mz", "country_name": "Mozambique"}, {"country_code": "mm", "country_name": "Myanmar"}, {"country_code": "na", "country_name": "Namibia"}, {"country_code": "nr", "country_name": "Nauru"}, {"country_code": "np", "country_name": "Nepal"}, {"country_code": "nl", "country_name": "Netherlands"}, {"country_code": "nc", "country_name": "New Caledonia"}, {"country_code": "nz", "country_name": "New Zealand"}, {"country_code": "ni", "country_name": "Nicaragua"}, {"country_code": "ne", "country_name": "Niger"}, {"country_code": "ng", "country_name": "Nigeria"}, {"country_code": "nu", "country_name": "Niue"}, {"country_code": "nf", "country_name": "Norfolk Island"}, {"country_code": "mp", "country_name": "Northern Mariana Islands"}, {"country_code": "no", "country_name": "Norway"}, {"country_code": "om", "country_name": "Oman"}, {"country_code": "pk", "country_name": "Pakistan"}, {"country_code": "pw", "country_name": "Palau"}, {"country_code": "ps", "country_name": "Palestinian Territory, Occupied"}, {"country_code": "pa", "country_name": "Panama"}, {"country_code": "pg", "country_name": "Papua New Guinea"}, {"country_code": "py", "country_name": "Paraguay"}, {"country_code": "pe", "country_name": "Peru"}, {"country_code": "ph", "country_name": "Philippines"}, {"country_code": "pn", "country_name": "Pitcairn"}, {"country_code": "pl", "country_name": "Poland"}, {"country_code": "pt", "country_name": "Portugal"}, {"country_code": "pr", "country_name": "Puerto Rico"}, {"country_code": "qa", "country_name": "Qatar"}, {"country_code": "re", "country_name": "Reunion"}, {"country_code": "ro", "country_name": "Romania"}, {"country_code": "ru", "country_name": "Russian Federation"}, {"country_code": "rw", "country_name": "Rwanda"}, {"country_code": "sh", "country_name": "Saint Helena"}, {"country_code": "kn", "country_name": "Saint Kitts and Nevis"}, {"country_code": "lc", "country_name": "Saint Lucia"}, {"country_code": "pm", "country_name": "Saint Pierre and Miquelon"}, {"country_code": "vc", "country_name": "Saint Vincent and the Grenadines"}, {"country_code": "ws", "country_name": "Samoa"}, {"country_code": "sm", "country_name": "San Marino"}, {"country_code": "st", "country_name": "Sao Tome and Principe"}, {"country_code": "sa", "country_name": "Saudi Arabia"}, {"country_code": "sn", "country_name": "Senegal"}, {"country_code": "rs", "country_name": "Serbia and Montenegro"}, {"country_code": "sc", "country_name": "Seychelles"}, {"country_code": "sl", "country_name": "Sierra Leone"}, {"country_code": "sg", "country_name": "Singapore"}, {"country_code": "sk", "country_name": "Slovakia"}, {"country_code": "si", "country_name": "Slovenia"}, {"country_code": "sb", "country_name": "Solomon Islands"}, {"country_code": "so", "country_name": "Somalia"}, {"country_code": "za", "country_name": "South Africa"}, {"country_code": "gs", "country_name": "South Georgia and the South Sandwich Islands"}, {"country_code": "es", "country_name": "Spain"}, {"country_code": "lk", "country_name": "Sri Lanka"}, {"country_code": "sd", "country_name": "Sudan"}, {"country_code": "sr", "country_name": "Suriname"}, {"country_code": "sj", "country_name": "Svalbard and Jan Mayen"}, {"country_code": "sz", "country_name": "Swaziland"}, {"country_code": "se", "country_name": "Sweden"}, {"country_code": "ch", "country_name": "Switzerland"}, {"country_code": "sy", "country_name": "Syrian Arab Republic"}, {"country_code": "tw", "country_name": "Taiwan"}, {"country_code": "tj", "country_name": "Tajikistan"}, {"country_code": "tz", "country_name": "Tanzania, United Republic of"}, {"country_code": "th", "country_name": "Thailand"}, {"country_code": "tl", "country_name": "Timor-Leste"}, {"country_code": "tg", "country_name": "Togo"}, {"country_code": "tk", "country_name": "Tokelau"}, {"country_code": "to", "country_name": "Tonga"}, {"country_code": "tt", "country_name": "Trinidad and Tobago"}, {"country_code": "tn", "country_name": "Tunisia"}, {"country_code": "tr", "country_name": "Turkey"}, {"country_code": "tm", "country_name": "Turkmenistan"}, {"country_code": "tc", "country_name": "Turks and Caicos Islands"}, {"country_code": "tv", "country_name": "Tuvalu"}, {"country_code": "ug", "country_name": "Uganda"}, {"country_code": "ua", "country_name": "Ukraine"}, {"country_code": "ae", "country_name": "United Arab Emirates"}, {"country_code": "uk", "country_name": "United Kingdom"}, {"country_code": "gb", "country_name": "United Kingdom"}, {"country_code": "us", "country_name": "United States"}, {"country_code": "um", "country_name": "United States Minor Outlying Islands"}, {"country_code": "uy", "country_name": "Uruguay"}, {"country_code": "uz", "country_name": "Uzbekistan"}, {"country_code": "vu", "country_name": "Vanuatu"}, {"country_code": "ve", "country_name": "Venezuela"}, {"country_code": "vn", "country_name": "Viet Nam"}, {"country_code": "vg", "country_name": "Virgin Islands, British"}, {"country_code": "vi", "country_name": "Virgin Islands, U.S."}, {"country_code": "wf", "country_name": "Wallis and Futuna"}, {"country_code": "eh", "country_name": "Western Sahara"}, {"country_code": "ye", "country_name": "Yemen"}, {"country_code": "zm", "country_name": "Zambia"}, {"country_code": "zw", "country_name": "Zimbabwe"}, {"country_code": "gg", "country_name": "Guernsey"}, {"country_code": "je", "country_name": "Jersey"}, {"country_code": "im", "country_name": "Isle of Man"}, {"country_code": "me", "country_name": "Montenegro"}
     ];
 
-    // Google HL (language) parameter options  
-    const GOOGLE_HL_OPTIONS = [
-      "af", "ak", "sq", "am", "ar", "hy", "az", "eu", "be", "bem", "bn", "bh", "bs", "br", "bg", 
-      "km", "ca", "chr", "ny", "zh-cn", "zh-tw", "co", "hr", "cs", "da", "nl", "en", "eo", "et", 
-      "ee", "fo", "tl", "fi", "fr", "fy", "gaa", "gl", "ka", "de", "el", "kl", "gn", "gu", "ht", 
-      "ha", "haw", "iw", "hi", "hu", "is", "ig", "id", "ia", "ga", "it", "ja", "jw", "kn", "kk", 
-      "rw", "rn", "kg", "ko", "kri", "ku", "ckb", "ky", "lo", "la", "lv", "ln", "lt", "loz", "lg", 
-      "ach", "mk", "mg", "my", "ms", "ml", "mt", "mv", "mi", "mr", "mfe", "mo", "mn", "sr-me", "ne", 
-      "pcm", "nso", "no", "nn", "oc", "or", "om", "ps", "fa", "pl", "pt", "pt-br", "pt-pt", "pa", 
-      "qu", "ro", "rm", "nyn", "ru", "gd", "sr", "sh", "st", "tn", "crs", "sn", "sd", "si", "sk", 
-      "sl", "so", "es", "es-419", "su", "sw", "sv", "tg", "ta", "tt", "te", "th", "ti", "to", "lua", 
-      "tum", "tr", "tk", "tw", "ug", "uk", "ur", "uz", "vu", "vi", "cy", "wo", "xh", "yi", "yo", "zu"
+    // Google language codes from provided JSON
+    const GOOGLE_LANGUAGES = [
+      {"language_code": "af", "language_name": "Afrikaans"}, {"language_code": "ak", "language_name": "Akan"}, {"language_code": "sq", "language_name": "Albanian"}, {"language_code": "am", "language_name": "Amharic"}, {"language_code": "ar", "language_name": "Arabic"}, {"language_code": "hy", "language_name": "Armenian"}, {"language_code": "az", "language_name": "Azerbaijani"}, {"language_code": "eu", "language_name": "Basque"}, {"language_code": "be", "language_name": "Belarusian"}, {"language_code": "bem", "language_name": "Bemba"}, {"language_code": "bn", "language_name": "Bengali"}, {"language_code": "bh", "language_name": "Bihari"}, {"language_code": "bs", "language_name": "Bosnian"}, {"language_code": "br", "language_name": "Breton"}, {"language_code": "bg", "language_name": "Bulgarian"}, {"language_code": "km", "language_name": "Cambodian"}, {"language_code": "ca", "language_name": "Catalan"}, {"language_code": "chr", "language_name": "Cherokee"}, {"language_code": "ny", "language_name": "Chichewa"}, {"language_code": "zh-cn", "language_name": "Chinese (Simplified)"}, {"language_code": "zh-tw", "language_name": "Chinese (Traditional)"}, {"language_code": "co", "language_name": "Corsican"}, {"language_code": "hr", "language_name": "Croatian"}, {"language_code": "cs", "language_name": "Czech"}, {"language_code": "da", "language_name": "Danish"}, {"language_code": "nl", "language_name": "Dutch"}, {"language_code": "en", "language_name": "English"}, {"language_code": "eo", "language_name": "Esperanto"}, {"language_code": "et", "language_name": "Estonian"}, {"language_code": "ee", "language_name": "Ewe"}, {"language_code": "fo", "language_name": "Faroese"}, {"language_code": "tl", "language_name": "Filipino"}, {"language_code": "fi", "language_name": "Finnish"}, {"language_code": "fr", "language_name": "French"}, {"language_code": "fy", "language_name": "Frisian"}, {"language_code": "gaa", "language_name": "Ga"}, {"language_code": "gl", "language_name": "Galician"}, {"language_code": "ka", "language_name": "Georgian"}, {"language_code": "de", "language_name": "German"}, {"language_code": "el", "language_name": "Greek"}, {"language_code": "kl", "language_name": "Greenlandic"}, {"language_code": "gn", "language_name": "Guarani"}, {"language_code": "gu", "language_name": "Gujarati"}, {"language_code": "ht", "language_name": "Haitian Creole"}, {"language_code": "ha", "language_name": "Hausa"}, {"language_code": "haw", "language_name": "Hawaiian"}, {"language_code": "iw", "language_name": "Hebrew"}, {"language_code": "hi", "language_name": "Hindi"}, {"language_code": "hu", "language_name": "Hungarian"}, {"language_code": "is", "language_name": "Icelandic"}, {"language_code": "ig", "language_name": "Igbo"}, {"language_code": "id", "language_name": "Indonesian"}, {"language_code": "ia", "language_name": "Interlingua"}, {"language_code": "ga", "language_name": "Irish"}, {"language_code": "it", "language_name": "Italian"}, {"language_code": "ja", "language_name": "Japanese"}, {"language_code": "jw", "language_name": "Javanese"}, {"language_code": "kn", "language_name": "Kannada"}, {"language_code": "kk", "language_name": "Kazakh"}, {"language_code": "rw", "language_name": "Kinyarwanda"}, {"language_code": "rn", "language_name": "Kirundi"}, {"language_code": "kg", "language_name": "Kongo"}, {"language_code": "ko", "language_name": "Korean"}, {"language_code": "kri", "language_name": "Krio (Sierra Leone)"}, {"language_code": "ku", "language_name": "Kurdish"}, {"language_code": "ckb", "language_name": "Kurdish (Soranî)"}, {"language_code": "ky", "language_name": "Kyrgyz"}, {"language_code": "lo", "language_name": "Laothian"}, {"language_code": "la", "language_name": "Latin"}, {"language_code": "lv", "language_name": "Latvian"}, {"language_code": "ln", "language_name": "Lingala"}, {"language_code": "lt", "language_name": "Lithuanian"}, {"language_code": "loz", "language_name": "Lozi"}, {"language_code": "lg", "language_name": "Luganda"}, {"language_code": "ach", "language_name": "Luo"}, {"language_code": "mk", "language_name": "Macedonian"}, {"language_code": "mg", "language_name": "Malagasy"}, {"language_code": "my", "language_name": "Burmese"}, {"language_code": "ms", "language_name": "Malay"}, {"language_code": "ml", "language_name": "Malayalam"}, {"language_code": "mt", "language_name": "Maltese"}, {"language_code": "mv", "language_name": "Maldives"}, {"language_code": "mi", "language_name": "Maori"}, {"language_code": "mr", "language_name": "Marathi"}, {"language_code": "mfe", "language_name": "Mauritian Creole"}, {"language_code": "mo", "language_name": "Moldavian"}, {"language_code": "mn", "language_name": "Mongolian"}, {"language_code": "sr-me", "language_name": "Montenegrin"}, {"language_code": "ne", "language_name": "Nepali"}, {"language_code": "pcm", "language_name": "Nigerian Pidgin"}, {"language_code": "nso", "language_name": "Northern Sotho"}, {"language_code": "no", "language_name": "Norwegian"}, {"language_code": "nn", "language_name": "Norwegian (Nynorsk)"}, {"language_code": "oc", "language_name": "Occitan"}, {"language_code": "or", "language_name": "Oriya"}, {"language_code": "om", "language_name": "Oromo"}, {"language_code": "ps", "language_name": "Pashto"}, {"language_code": "fa", "language_name": "Persian"}, {"language_code": "pl", "language_name": "Polish"}, {"language_code": "pt", "language_name": "Portuguese"}, {"language_code": "pt-br", "language_name": "Portuguese (Brazil)"}, {"language_code": "pt-pt", "language_name": "Portuguese (Portugal)"}, {"language_code": "pa", "language_name": "Punjabi"}, {"language_code": "qu", "language_name": "Quechua"}, {"language_code": "ro", "language_name": "Romanian"}, {"language_code": "rm", "language_name": "Romansh"}, {"language_code": "nyn", "language_name": "Runyakitara"}, {"language_code": "ru", "language_name": "Russian"}, {"language_code": "gd", "language_name": "Scots Gaelic"}, {"language_code": "sr", "language_name": "Serbian"}, {"language_code": "sh", "language_name": "Serbo-Croatian"}, {"language_code": "st", "language_name": "Sesotho"}, {"language_code": "tn", "language_name": "Setswana"}, {"language_code": "crs", "language_name": "Seychellois Creole"}, {"language_code": "sn", "language_name": "Shona"}, {"language_code": "sd", "language_name": "Sindhi"}, {"language_code": "si", "language_name": "Sinhalese"}, {"language_code": "sk", "language_name": "Slovak"}, {"language_code": "sl", "language_name": "Slovenian"}, {"language_code": "so", "language_name": "Somali"}, {"language_code": "es", "language_name": "Spanish"}, {"language_code": "es-419", "language_name": "Spanish (Latin American)"}, {"language_code": "su", "language_name": "Sundanese"}, {"language_code": "sw", "language_name": "Swahili"}, {"language_code": "sv", "language_name": "Swedish"}, {"language_code": "tg", "language_name": "Tajik"}, {"language_code": "ta", "language_name": "Tamil"}, {"language_code": "tt", "language_name": "Tatar"}, {"language_code": "te", "language_name": "Telugu"}, {"language_code": "th", "language_name": "Thai"}, {"language_code": "ti", "language_name": "Tigrinya"}, {"language_code": "to", "language_name": "Tonga"}, {"language_code": "lua", "language_name": "Tshiluba"}, {"language_code": "tum", "language_name": "Tumbuka"}, {"language_code": "tr", "language_name": "Turkish"}, {"language_code": "tk", "language_name": "Turkmen"}, {"language_code": "tw", "language_name": "Twi"}, {"language_code": "ug", "language_name": "Uighur"}, {"language_code": "uk", "language_name": "Ukrainian"}, {"language_code": "ur", "language_name": "Urdu"}, {"language_code": "uz", "language_name": "Uzbek"}, {"language_code": "vu", "language_name": "Vanuatu"}, {"language_code": "vi", "language_name": "Vietnamese"}, {"language_code": "cy", "language_name": "Welsh"}, {"language_code": "wo", "language_name": "Wolof"}, {"language_code": "xh", "language_name": "Xhosa"}, {"language_code": "yi", "language_name": "Yiddish"}, {"language_code": "yo", "language_name": "Yoruba"}, {"language_code": "zu", "language_name": "Zulu"}
     ];
 
-    // Query analysis schema for AI parameter detection
-    const queryAnalysisSchema = {
+    // Create lookup arrays for AI
+    const COUNTRY_CODES = GOOGLE_COUNTRIES.map(c => c.country_code);
+    const LANGUAGE_CODES = GOOGLE_LANGUAGES.map(l => l.language_code);
+
+    // Simplified schemas
+    const searchQuerySchema = {
       "type": "object",
       "properties": {
-        "suggested_gl": { "type": ["string", "null"], "description": "Suggested Google gl (country) parameter from the available list" },
-        "suggested_hl": { "type": ["string", "null"], "description": "Suggested Google hl (language) parameter from the available list" },
-        "target_language": { "type": "string", "description": "Target language name for processing (e.g., 'French', 'German', 'English', 'Spanish')" },
-        "additional_queries": { 
+        "gl": { "type": "string", "description": "Google country code (gl parameter)" },
+        "hl": { "type": "string", "description": "Google language code (hl parameter)" },
+        "search_queries": { 
           "type": "array", 
           "items": { "type": "string" },
-          "maxItems": 10,
-          "description": "Additional related queries in the target language" 
-        },
-        "reasoning": { "type": "string", "description": "Brief explanation of country/language choices" }
+          "minItems": 3,
+          "maxItems": 15,
+          "description": "Array of search queries in the target language" 
+        }
       },
-      "required": ["suggested_gl", "suggested_hl", "target_language", "additional_queries", "reasoning"],
+      "required": ["gl", "hl", "search_queries"],
+      "additionalProperties": false
+    };
+
+    const urlSelectionSchema = {
+      "type": "object",
+      "properties": {
+        "selected_urls": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 150,
+          "description": "URLs selected for content fetching"
+        }
+      },
+      "required": ["selected_urls"],
+      "additionalProperties": false
+    };
+
+    const webUnlockerContentSchema = {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "title": { "type": ["string", "null"], "description": "Main content headline or title" },
+            "content": { "type": ["string", "null"], "description": "Clean text content of the main body without HTML tags, line breaks, or non-essential information" },
+            "additional_research_queries": { 
+              "type": "array", 
+              "items": { "type": "string" },
+              "maxItems": 5,
+              "description": "Array of targeted research queries (2-10 words each) for finding related information" 
+            },
+            "url": { "type": "string", "description": "The URL that was processed" }
+          },
+          "required": ["title", "content", "additional_research_queries", "url"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["data"],
+      "additionalProperties": false
+    };
+
+    const serpResultsSchema = {
+      "type": "object",
+      "properties": {
+        "search_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_name": { "type": ["string", "null"], "description": "Name of the source or domain" },
+              "title": { "type": ["string", "null"], "description": "Title of the search result" },
+              "excerpt": { "type": ["string", "null"], "description": "Snippet or description of the search result" },
+              "url": { "type": ["string", "null"], "description": "Complete URL of the search result without recognizable tracking codes" }
+            },
+            "required": ["source_name", "title", "excerpt", "url"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["search_results"],
       "additionalProperties": false
     };
 
@@ -127,514 +159,338 @@ async function brightdata_web_fetcher(params, userSettings) {
       if (searchParams.ibp) params.append('ibp', searchParams.ibp);
       if (searchParams.gl) params.append('gl', searchParams.gl);
       if (searchParams.hl) params.append('hl', searchParams.hl);
-      if (searchParams.start !== undefined) params.append('start', searchParams.start.toString());
-      if (searchParams.num !== undefined) params.append('num', searchParams.num.toString());
+      params.append('num', '10');
       return `${baseUrl}?${params.toString()}`;
     }
 
-    // PARALLEL: Analyze multiple queries for AI-determined parameters
-    async function analyzeQueriesForParameters(queries, contextQuestion) {
-      if (!openaiApiKey || !queries.length) return [];
-      
-      const analysisPromises = queries.map(async (query, index) => {
-        const prompt = `Analyze this search query and determine the optimal Google search parameters:
+    // Step 1: Generate search queries with geographic targeting
+    async function generateSearchQueries(originalQuery, contextQuestion) {
+      const prompt = `Analyze this search query and generate optimized Google search parameters and related queries:
 
-Original Context/Question: "${contextQuestion || 'General search'}"
-Current Query: "${query}"
+Original Query: "${originalQuery}"
+Context/Question: "${contextQuestion || 'General research'}"
 
-Available country codes (gl): ${GOOGLE_GL_OPTIONS.join(', ')}
-Available language codes (hl): ${GOOGLE_HL_OPTIONS.join(', ')}
+Available country codes (gl): ${COUNTRY_CODES.join(', ')}
+Available language codes (hl): ${LANGUAGE_CODES.join(', ')}
 
 Instructions:
-1. Analyze the query for geographic context (countries, regions, cities mentioned)
+1. Detect geographic focus from the query (countries, regions, cities, locations mentioned)
 2. Choose the most appropriate gl (country) parameter from the available list
 3. Choose the most appropriate hl (language) parameter from the available list
-4. Determine the target language name for content processing
-5. Generate 3-10 additional related queries in the TARGET LANGUAGE
-6. Consider local context and cultural relevance
+4. Generate 3-15 related search queries in the TARGET LANGUAGE
+5. If no geographic context is detected, default to: gl="us", hl="en"
 
-Examples:
-- Query about France → gl: "fr", hl: "fr", target_language: "French", queries in French
-- Query about Germany → gl: "de", hl: "de", target_language: "German", queries in German  
-- Query about Switzerland → choose primary language (German/French/Italian based on context)
-- Query about Canada → gl: "ca", hl: "en", target_language: "English", queries in English
-- Query about multilingual countries → choose most relevant language for the context
-- No geographic context → gl: "us", hl: "en", target_language: "English", queries in English
+Generate diverse, specific queries that will capture comprehensive information about the topic.`;
 
-Always choose from the provided lists. Provide reasoning for your choices.`;
+      const requestBody = {
+        model: openaiModel,
+        messages: [{ role: "user", content: prompt }],
+        response_format: { 
+          type: "json_schema", 
+          json_schema: { 
+            name: "search_query_generation", 
+            strict: true, 
+            schema: searchQuerySchema 
+          }
+        },
+        max_tokens: 2000,
+        temperature: 0.3
+      };
 
-        const requestBody = {
-          model: openaiModel,
-          messages: [{ role: "user", content: prompt }],
-          response_format: { 
-            type: "json_schema", 
-            json_schema: { 
-              name: "query_analysis", 
-              strict: true, 
-              schema: queryAnalysisSchema 
-            }
-          },
-          max_tokens: 1500,
-          temperature: 0.2
-        };
-
-        try {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
-            body: JSON.stringify(requestBody)
-          });
-          
-          if (!response.ok) return { query, index, analysis: null };
-          
-          const result = await response.json();
-          const content = result.choices[0]?.message?.content;
-          if (!content) return { query, index, analysis: null };
-          
-          return { query, index, analysis: JSON.parse(content) };
-        } catch (error) {
-          return { query, index, analysis: null };
-        }
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+        body: JSON.stringify(requestBody)
       });
 
-      return Promise.all(analysisPromises);
+      if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`);
+      
+      const result = await response.json();
+      const content = result.choices[0]?.message?.content;
+      if (!content) throw new Error('No response generated from OpenAI');
+      
+      return JSON.parse(content);
     }
 
-    // Original content schema with arrays and optional name
-    const contentSchema = {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "name": { "type": ["string", "null"], "description": "Optional descriptive name/identifier for this content" },
-            "title": { "type": ["string", "null"], "description": "Main content headline or title" },
-            "content": { "type": ["string", "null"], "description": "Clean text content of the main body without HTML tags, line breaks, or non-essential information" },
-            "keywords": { 
-              "type": "array", 
-              "items": { "type": "string" },
-              "maxItems": 10,
-              "description": "Array of relevant keywords and phrases extracted from the content" 
-            },
-            "research_queries": { 
-              "type": "array", 
-              "items": { "type": "string" },
-              "maxItems": 5,
-              "description": "Array of targeted research queries (2-10 words each) for finding related information" 
-            }
-          },
-          "required": ["name", "title", "content", "keywords", "research_queries"],
-          "additionalProperties": false
-        }
-      },
-      "required": ["data"],
-      "additionalProperties": false
-    };
+    // Step 2: Execute searches in parallel and extract results
+    async function executeSearches(searchQueries, searchParams) {
+      const searchPromises = searchQueries.map(async (query, index) => {
+        try {
+          const searchUrl = buildGoogleSearchUrl(query, searchParams);
+          const response = await fetch('https://api.brightdata.com/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serpApiKey}` },
+            body: JSON.stringify({ zone: serpZone, url: searchUrl, format: 'raw' })
+          });
 
-    // SERP results schema
-    const serpResultsSchema = {
-      "type": "object",
-      "properties": {
-        "search_results": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "source_name": { "type": ["string", "null"], "description": "Name of the source or domain" },
-              "title": { "type": ["string", "null"], "description": "Title of the search result" },
-              "excerpt": { "type": ["string", "null"], "description": "Snippet or description of the search result" },
-              "url": { "type": ["string", "null"], "description": "Complete URL of the search result without recognizable tracking codes" }
-            },
-            "required": ["source_name", "title", "excerpt", "url"],
-            "additionalProperties": false
+          if (!response.ok) {
+            const errorText = await response.text();
+            return { query, index, success: false, error: `BrightData SERP API error (${response.status}): ${errorText}` };
           }
-        }
-      },
-      "required": ["search_results"],
-      "additionalProperties": false
-    };
 
-    // PARALLEL: Batch OpenAI processing with target language specification
-    async function batchProcessWithOpenAI(contentBatch, actionType, targetLanguage = 'English', searchParams = {}) {
-      if (!openaiApiKey) throw new Error('OpenAI API key not configured. Please set it in plugin settings.');
-      
-      const requests = contentBatch.map(async (item) => {
-        let prompt, responseFormat;
-        
-        if (actionType === 'search') {
-          prompt = `Extract search results from this Google search HTML content for the query: "${item.query}". 
+          const htmlResult = await response.text();
+          const bodyContent = extractBodyContent(htmlResult);
 
-TARGET LANGUAGE: ${targetLanguage}
-IMPORTANT: Process and respond in ${targetLanguage}. Extract titles, excerpts, and source names in ${targetLanguage}.
-
-REFERENCE: Google search parameters used:
-- gl: ${searchParams.gl || 'not set'}
-- hl: ${searchParams.hl || 'not set'}
+          const extractPrompt = `Extract search results from this Google search HTML content for the query: "${query}". 
 
 Extract all real search results (do not invent or summarize). Maintain original URLs without modification.
 
 HTML Content:
-${item.content}`;
-          responseFormat = { type: "json_schema", json_schema: { name: "search_results", strict: true, schema: serpResultsSchema }};
-        } else if (actionType === 'fetch') {
-          prompt = `Extract the main content from this HTML webpage.
+${bodyContent}`;
 
-TARGET LANGUAGE: ${targetLanguage}
-IMPORTANT: Process content and respond in ${targetLanguage}.
+          const extractRequestBody = {
+            model: openaiModel,
+            messages: [{ role: "user", content: extractPrompt }],
+            response_format: { type: "json_schema", json_schema: { name: "search_results", strict: true, schema: serpResultsSchema }},
+            max_tokens: 8000,
+            temperature: 0
+          };
+
+          const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+            body: JSON.stringify(extractRequestBody)
+          });
+
+          if (!extractResponse.ok) {
+            return { query, index, success: false, error: `OpenAI extraction error: ${extractResponse.status}` };
+          }
+
+          const extractResult = await extractResponse.json();
+          const extractedContent = extractResult.choices[0]?.message?.content;
+          if (!extractedContent) {
+            return { query, index, success: false, error: 'No extraction result from OpenAI' };
+          }
+
+          const parsedResults = JSON.parse(extractedContent);
+          return {
+            query,
+            index,
+            success: true,
+            results: parsedResults.search_results || []
+          };
+
+        } catch (error) {
+          return { query, index, success: false, error: `Search error: ${error.message}` };
+        }
+      });
+
+      return Promise.all(searchPromises);
+    }
+
+    // Step 3: Deduplicate and select relevant URLs
+    async function selectRelevantUrls(allSearchResults, originalQuery, contextQuestion) {
+      const seenUrls = new Set();
+      const uniqueResults = [];
+
+      allSearchResults.forEach(searchResult => {
+        if (searchResult.success && searchResult.results) {
+          searchResult.results.forEach(result => {
+            if (result.url && !seenUrls.has(result.url)) {
+              seenUrls.add(result.url);
+              uniqueResults.push(result);
+            }
+          });
+        }
+      });
+
+      if (uniqueResults.length === 0) {
+        return { selected_urls: [] };
+      }
+
+      const selectionPrompt = `Select the most relevant URLs for comprehensive research on this topic:
+
+Original Query: "${originalQuery}"
+Context/Question: "${contextQuestion || 'General research'}"
+
+Available search results:
+${uniqueResults.map((result, index) => 
+  `${index + 1}. Title: ${result.title}
+   URL: ${result.url}
+   Excerpt: ${result.excerpt}
+   Source: ${result.source_name}`
+).join('\n\n')}
 
 Instructions:
-1. Extract ONLY the main content body as clean text in ${targetLanguage}
+1. Select URLs that are most relevant to answering the research question
+2. Prioritize authoritative sources, official websites, and comprehensive content
+3. Avoid duplicate or very similar content
+4. Select up to 150 URLs maximum
+
+Return only the selected URLs as an array of strings.`;
+
+      const selectionRequestBody = {
+        model: openaiModel,
+        messages: [{ role: "user", content: selectionPrompt }],
+        response_format: { 
+          type: "json_schema", 
+          json_schema: { 
+            name: "url_selection", 
+            strict: true, 
+            schema: urlSelectionSchema 
+          }
+        },
+        max_tokens: 16000,
+        temperature: 0.2
+      };
+
+      const selectionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+        body: JSON.stringify(selectionRequestBody)
+      });
+
+      if (!selectionResponse.ok) {
+        throw new Error(`OpenAI URL selection error (${selectionResponse.status}): ${await selectionResponse.text()}`);
+      }
+
+      const selectionResult = await selectionResponse.json();
+      const selectionContent = selectionResult.choices[0]?.message?.content;
+      if (!selectionContent) {
+        throw new Error('No URL selection result from OpenAI');
+      }
+
+      return JSON.parse(selectionContent);
+    }
+
+    // Step 4: Fetch URLs in batches of 10
+    async function fetchUrlsInBatches(selectedUrls) {
+      const research_data = [];
+      const batchSize = 10;
+
+      for (let i = 0; i < selectedUrls.length; i += batchSize) {
+        const batch = selectedUrls.slice(i, i + batchSize);
+        
+        const batchPromises = batch.map(async (targetUrl) => {
+          try {
+            const response = await fetch('https://api.brightdata.com/request', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${unlockerApiKey}`
+              },
+              body: JSON.stringify({ zone: unlockerZone, url: targetUrl, format: 'raw' })
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              return {
+                url: targetUrl,
+                content: null
+              };
+            }
+
+            const rawContent = await response.text();
+            const contentType = response.headers.get('content-type') || '';
+            const processingType = getContentProcessingType(rawContent, contentType, targetUrl);
+
+            if (processingType === 'html') {
+              const bodyContent = extractBodyContent(rawContent);
+              
+              const extractPrompt = `Extract the main content from this HTML webpage.
+
+Instructions:
+1. Extract ONLY the main content body as clean text
 2. Remove navigation, ads, etc.
 3. Preserve <pre>, <code> HTML tags, remove all other HTML tags
 4. Remove line breaks
-5. Generate a descriptive name in ${targetLanguage}
-6. Extract 5-10 relevant keywords in ${targetLanguage}
-7. Generate 3-5 targeted research queries (2-10 words each) in ${targetLanguage}
+5. Generate 3-5 targeted research queries (2-10 words each)
 
-URL: ${item.url}
+URL: ${targetUrl}
 HTML Content:
-${item.content}`;
-          responseFormat = { type: "json_schema", json_schema: { name: "content", strict: true, schema: contentSchema }};
-        }
+${bodyContent}`;
 
-        const requestBody = {
-          model: openaiModel,
-          messages: [{ role: "user", content: prompt }],
-          response_format: responseFormat,
-          max_tokens: 32768,
-          temperature: 0
-        };
+              const extractRequestBody = {
+                model: openaiModel,
+                messages: [{ role: "user", content: extractPrompt }],
+                response_format: { type: "json_schema", json_schema: { name: "content", strict: true, schema: webUnlockerContentSchema }},
+                max_tokens: 32768,
+                temperature: 0
+              };
 
-        try {
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
-            body: JSON.stringify(requestBody)
-          });
-          
-          if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`);
-          
-          const result = await response.json();
-          const content_response = result.choices[0]?.message?.content;
-          if (!content_response) throw new Error('No response generated from OpenAI');
-          
-          return { 
-            ...item, 
-            processed: JSON.parse(content_response),
-            success: true 
-          };
-        } catch (error) {
-          return { 
-            ...item, 
-            processed: null, 
-            success: false, 
-            error: error.message 
-          };
-        }
-      });
+              const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+                body: JSON.stringify(extractRequestBody)
+              });
 
-      return Promise.all(requests);
-    }
+              if (extractResponse.ok) {
+                const extractResult = await extractResponse.json();
+                const extractedContent = extractResult.choices[0]?.message?.content;
+                if (extractedContent) {
+                  const parsedContent = JSON.parse(extractedContent);
+                  return {
+                    url: targetUrl,
+                    content: parsedContent.data.content
+                  };
+                }
+              }
 
-    // PARALLEL: Fetch multiple URLs with batch AI processing
-    async function fetchMultipleUrls(urls, targetLanguage = 'English') {
-      // Step 1: Fetch all URLs in parallel
-      const fetchPromises = urls.map(async (url, index) => {
-        try { 
-          new URL(url); 
-        } catch (_) {
-          return { url, index, success: false, error: 'Invalid URL provided.' };
-        }
+              return {
+                url: targetUrl,
+                content: bodyContent.substring(0, 10000)
+              };
+            } else {
+              return {
+                url: targetUrl,
+                content: rawContent
+              };
+            }
 
-        try {
-          const response = await fetch('https://api.brightdata.com/request', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${unlockerApiKey}`
-            },
-            body: JSON.stringify({ zone: unlockerZone, url, format: 'raw' })
-          });
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            return { url, index, success: false, error: `BrightData Web Unlocker API error (${response.status}): ${errorText}` };
-          }
-          
-          const rawContent = await response.text();
-          const contentType = response.headers.get('content-type') || '';
-          const processingType = getContentProcessingType(rawContent, contentType, url);
-          
-          return {
-            url,
-            index,
-            success: true,
-            rawContent,
-            contentType,
-            processingType
-          };
-        } catch (error) {
-          return { url, index, success: false, error: `Error fetching URL: ${error.message}` };
-        }
-      });
-
-      const fetchResults = await Promise.all(fetchPromises);
-
-      // Step 2: Separate HTML content for batch AI processing
-      const htmlItems = [];
-      const finalResults = [];
-
-      fetchResults.forEach((result) => {
-        if (!result.success) {
-          finalResults[result.index] = result;
-          return;
-        }
-
-        if (result.processingType === 'html') {
-          const bodyContent = extractBodyContent(result.rawContent);
-          htmlItems.push({
-            url: result.url,
-            index: result.index,
-            content: bodyContent
-          });
-        } else if (['json', 'xml', 'javascript', 'css', 'text'].includes(result.processingType)) {
-          finalResults[result.index] = {
-            success: true,
-            url: result.url,
-            content: { 
-              data: { 
-                name: null, 
-                title: null, 
-                content: result.rawContent, 
-                keywords: [], 
-                research_queries: [] 
-              } 
-            },
-            content_type: result.processingType
-          };
-        } else if (result.processingType === 'unsupported') {
-          finalResults[result.index] = {
-            success: false,
-            url: result.url,
-            error: `Unsupported content type: ${result.contentType}. This plugin only supports HTML, JSON, XML, JavaScript, CSS, and plain text files.`
-          };
-        } else {
-          finalResults[result.index] = {
-            success: true,
-            url: result.url,
-            content: { 
-              data: { 
-                name: null, 
-                title: null, 
-                content: result.rawContent, 
-                keywords: [], 
-                research_queries: [] 
-              } 
-            },
-            content_type: "text"
-          };
-        }
-      });
-
-      // Step 3: Process HTML content in parallel batches with target language
-      if (htmlItems.length > 0) {
-        const processedHtmlItems = await batchProcessWithOpenAI(htmlItems, 'fetch', targetLanguage);
-        
-        processedHtmlItems.forEach((item) => {
-          if (item.success) {
-            finalResults[item.index] = {
-              success: true,
-              url: item.url,
-              content: item.processed,
-              content_type: "html"
-            };
-          } else {
-            finalResults[item.index] = {
-              success: false,
-              url: item.url,
-              error: `Content processing error: ${item.error}`
+          } catch (error) {
+            return {
+              url: targetUrl,
+              content: null
             };
           }
         });
+
+        const batchResults = await Promise.all(batchPromises);
+        research_data.push(...batchResults);
       }
 
-      return finalResults.filter(Boolean); // Remove any undefined entries
+      return research_data;
     }
 
     // Main logic
     if (action === 'search') {
       if (!serpApiKey)
         return { success: false, error: 'BrightData SERP API key not configured. Please set it in plugin settings.' };
+      if (!unlockerApiKey)
+        return { success: false, error: 'BrightData Web Unlocker API key not configured. Please set it in plugin settings.' };
+      if (!openaiApiKey)
+        return { success: false, error: 'OpenAI API key not configured. Please set it in plugin settings.' };
       if (!query)
         return { success: false, error: 'Query is required for search action.' };
 
-      let queries = Array.isArray(query) ? query : [query];
-      let searchParams = { tbm, ibp, gl, hl, start, num: num || 10 }; // Default to 10 results per query
-      let queryAnalyses = [];
-      let targetLanguage = 'English'; // Default
-
-      // PARALLEL: Analyze all queries for AI-determined parameters if not provided
-      if (!gl || !hl) {
-        queryAnalyses = await analyzeQueriesForParameters(queries, context_question);
+      try {
+        // Step 1: Generate search queries and detect targeting
+        const queryGeneration = await generateSearchQueries(query, context_question);
         
-        // Apply AI suggestions from first successful analysis if user didn't specify parameters
-        const firstValidAnalysis = queryAnalyses.find(qa => qa.analysis);
-        if (firstValidAnalysis && firstValidAnalysis.analysis) {
-          if (!gl && firstValidAnalysis.analysis.suggested_gl && GOOGLE_GL_OPTIONS.includes(firstValidAnalysis.analysis.suggested_gl)) {
-            searchParams.gl = firstValidAnalysis.analysis.suggested_gl;
-          }
-          if (!hl && firstValidAnalysis.analysis.suggested_hl && GOOGLE_HL_OPTIONS.includes(firstValidAnalysis.analysis.suggested_hl)) {
-            searchParams.hl = firstValidAnalysis.analysis.suggested_hl;
-          }
-          if (firstValidAnalysis.analysis.target_language) {
-            targetLanguage = firstValidAnalysis.analysis.target_language;
-          }
-        }
-
-        // Add additional queries from all analyses
-        const additionalQueries = [];
-        queryAnalyses.forEach(qa => {
-          if (qa.analysis && qa.analysis.additional_queries) {
-            additionalQueries.push(...qa.analysis.additional_queries);
-          }
-        });
-        
-        if (additionalQueries.length > 0) {
-          queries = [...queries, ...additionalQueries];
-        }
-      } else {
-        // If both gl and hl are provided by user, need AI to determine target language
-        if (openaiApiKey) {
-          const langDetectionPrompt = `Given these Google search parameters, determine the target language name for content processing:
-gl (country): ${searchParams.gl}
-hl (language): ${searchParams.hl}
-
-Return only the language name (e.g., "French", "German", "English", "Spanish", "Chinese", "Japanese", etc.)`;
-          
-          try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
-              body: JSON.stringify({
-                model: openaiModel,
-                messages: [{ role: "user", content: langDetectionPrompt }],
-                max_tokens: 50,
-                temperature: 0
-              })
-            });
-            
-            if (response.ok) {
-              const result = await response.json();
-              const detectedLang = result.choices[0]?.message?.content?.trim();
-              if (detectedLang) {
-                targetLanguage = detectedLang;
-              }
-            }
-          } catch (error) {
-            // Keep default English if detection fails
-          }
-        }
-      }
-
-      // Apply search query limit
-      if (queries.length > MAX_SEARCH_QUERIES) {
-        queries = queries.slice(0, MAX_SEARCH_QUERIES);
-      }
-
-      // PARALLEL: Execute all search requests
-      const searchPromises = queries.map((q, index) => {
-        const searchUrl = buildGoogleSearchUrl(q, searchParams);
-        return fetch('https://api.brightdata.com/request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serpApiKey}` },
-          body: JSON.stringify({ zone: serpZone, url: searchUrl, format: 'raw' })
-        })
-          .then(async r => {
-            if (!r.ok) {
-              const errorText = await r.text();
-              return { 
-                query: q, 
-                index, 
-                success: false, 
-                error: `BrightData SERP API error (${r.status}): ${errorText}` 
-              };
-            }
-            const htmlResult = await r.text();
-            const bodyContent = extractBodyContent(htmlResult);
-            return {
-              query: q,
-              index,
-              success: true,
-              content: bodyContent
-            };
-          })
-          .catch(error => ({ 
-            query: q, 
-            index, 
-            success: false, 
-            error: `Fetch error: ${error.message}` 
-          }));
-      });
-
-      const searchResults = await Promise.all(searchPromises);
-
-      // PARALLEL: Process all HTML search results with AI in target language 
-      const htmlSearchItems = searchResults
-        .filter(result => result.success)
-        .map(result => ({
-          query: result.query,
-          index: result.index,
-          content: result.content
-        }));
-
-      const processedSearchResults = await batchProcessWithOpenAI(htmlSearchItems, 'search', targetLanguage, searchParams);
-
-      // Combine results
-      const finalSearchResults = searchResults.map(result => {
-        if (!result.success) {
-          return {
-            success: false,
-            query: result.query,
-            query_index: result.index,
-            error: result.error
-          };
-        }
-
-        const processed = processedSearchResults.find(p => p.index === result.index);
-        return {
-          success: processed?.success || false,
-          query: result.query,
-          query_index: result.index,
-          is_primary: result.index < (Array.isArray(query) ? query.length : 1),
-          search_params: searchParams,
-          results: processed?.processed || null,
-          error: processed?.success ? undefined : processed?.error
+        const searchParams = {
+          tbm,
+          ibp,
+          gl: gl || queryGeneration.gl,
+          hl: hl || queryGeneration.hl
         };
-      });
 
-      const response = {
-        success: true,
-        results: finalSearchResults,
-        total_queries: queries.length,
-        queries_limit_applied: queries.length >= MAX_SEARCH_QUERIES,
-        search_params_used: searchParams,
-        target_language: targetLanguage,
-        context_question: context_question
-      };
+        // Step 2: Execute searches in parallel
+        const searchResults = await executeSearches(queryGeneration.search_queries, searchParams);
 
-      // Include AI analysis info if available
-      if (queryAnalyses.length > 0) {
-        response.ai_analyses = queryAnalyses.map(qa => ({
-          query: qa.query,
-          reasoning: qa.analysis?.reasoning,
-          suggested_gl: qa.analysis?.suggested_gl,
-          suggested_hl: qa.analysis?.suggested_hl,
-          target_language: qa.analysis?.target_language,
-          generated_additional_queries: qa.analysis?.additional_queries
-        }));
+        // Step 3: Select relevant URLs
+        const urlSelection = await selectRelevantUrls(searchResults, query, context_question);
+
+        // Step 4: Fetch content from selected URLs
+        const research_data = await fetchUrlsInBatches(urlSelection.selected_urls);
+
+        return {
+          success: true,
+          research_data
+        };
+
+      } catch (error) {
+        return { success: false, error: `Search workflow error: ${error.message}` };
       }
-
-      return Array.isArray(query) ? response : finalSearchResults[0];
 
     } else if (action === 'fetch') {
       if (!unlockerApiKey)
@@ -643,66 +499,127 @@ Return only the language name (e.g., "French", "German", "English", "Spanish", "
         return { success: false, error: 'URL is required for fetch action.' };
 
       const urls = Array.isArray(url) ? url : [url];
-      
-      // Apply URL fetch limit
-      const limitedUrls = urls.length > MAX_FETCH_URLS ? urls.slice(0, MAX_FETCH_URLS) : urls;
+      const results = [];
 
-      // Determine target language from context or parameters
-      let targetLanguage = 'English'; // Default
-      
-      if (gl || hl || context_question) {
-        // Let AI determine target language based on available context
-        if (openaiApiKey) {
-          const contextAnalysisPrompt = `Determine the target language for processing web content based on this context:
+      for (const targetUrl of urls) {
+        try {
+          const response = await fetch('https://api.brightdata.com/request', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${unlockerApiKey}`
+            },
+            body: JSON.stringify({ zone: unlockerZone, url: targetUrl, format: 'raw' })
+          });
 
-Context/Question: "${context_question || 'No context provided'}"
-Google gl parameter: ${gl || 'not set'}
-Google hl parameter: ${hl || 'not set'}
-URLs to fetch: ${limitedUrls.slice(0, 3).join(', ')}${limitedUrls.length > 3 ? ' ...' : ''}
-
-Choose the most appropriate target language name for content processing (e.g., "French", "German", "English", "Spanish", "Chinese", "Japanese", etc.)
-Return only the language name.`;
-          
-          try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
-              body: JSON.stringify({
-                model: openaiModel,
-                messages: [{ role: "user", content: contextAnalysisPrompt }],
-                max_tokens: 50,
-                temperature: 0
-              })
+          if (!response.ok) {
+            const errorText = await response.text();
+            results.push({
+              url: targetUrl,
+              success: false,
+              error: `BrightData Web Unlocker API error (${response.status}): ${errorText}`
             });
-            
-            if (response.ok) {
-              const result = await response.json();
-              const detectedLang = result.choices[0]?.message?.content?.trim();
-              if (detectedLang) {
-                targetLanguage = detectedLang;
+            continue;
+          }
+
+          const rawContent = await response.text();
+          const contentType = response.headers.get('content-type') || '';
+          const processingType = getContentProcessingType(rawContent, contentType, targetUrl);
+
+          if (processingType === 'html') {
+            const bodyContent = extractBodyContent(rawContent);
+            if (openaiApiKey) {
+              try {
+                const extractPrompt = `Extract the main content from this HTML webpage.
+
+Instructions:
+1. Extract ONLY the main content body as clean text
+2. Remove navigation, ads, etc.
+3. Preserve <pre>, <code> HTML tags, remove all other HTML tags
+4. Remove line breaks
+5. Generate 3-5 targeted research queries (2-10 words each)
+
+URL: ${targetUrl}
+HTML Content:
+${bodyContent}`;
+
+                const extractRequestBody = {
+                  model: openaiModel,
+                  messages: [{ role: "user", content: extractPrompt }],
+                  response_format: { type: "json_schema", json_schema: { name: "content", strict: true, schema: webUnlockerContentSchema }},
+                  max_tokens: 32768,
+                  temperature: 0
+                };
+
+                const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+                  body: JSON.stringify(extractRequestBody)
+                });
+
+                if (extractResponse.ok) {
+                  const extractResult = await extractResponse.json();
+                  const extractedContent = extractResult.choices[0]?.message?.content;
+                  if (extractedContent) {
+                    const parsedContent = JSON.parse(extractedContent);
+                    results.push({
+                      url: targetUrl,
+                      success: true,
+                      content: parsedContent.data,
+                      content_type: "html"
+                    });
+                    continue;
+                  }
+                }
+              } catch (aiError) {
+                // Fall back to raw content if AI processing fails
               }
             }
-          } catch (error) {
-            // Keep default English if detection fails
+            
+            results.push({
+              url: targetUrl,
+              success: true,
+              content: {
+                title: null,
+                content: bodyContent.substring(0, 10000),
+                additional_research_queries: [],
+                url: targetUrl
+              },
+              content_type: "html"
+            });
+          } else {
+            results.push({
+              url: targetUrl,
+              success: true,
+              content: {
+                title: null,
+                content: rawContent,
+                additional_research_queries: [],
+                url: targetUrl
+              },
+              content_type: processingType
+            });
           }
+
+        } catch (error) {
+          results.push({
+            url: targetUrl,
+            success: false,
+            error: `Fetch error: ${error.message}`
+          });
         }
       }
 
-      // PARALLEL: Fetch and process all URLs with AI-determined target language
-      const results = await fetchMultipleUrls(limitedUrls, targetLanguage);
-      
       return Array.isArray(url) ? {
         success: true,
         results,
-        total_urls: limitedUrls.length,
-        urls_limit_applied: urls.length > MAX_FETCH_URLS,
-        target_language: targetLanguage,
-        context_question: context_question
+        total_urls: urls.length
       } : results[0];
 
     } else {
       return { success: false, error: 'Invalid action. Must be either "search" or "fetch".' };
     }
+
   } catch (error) {
     return { success: false, error: `Unexpected error: ${error.message}` };
   }
