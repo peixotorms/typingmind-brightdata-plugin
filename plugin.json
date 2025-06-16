@@ -5,12 +5,12 @@
   "title": "BrightData Web Fetcher",
   "emoji": "🌐",
   "iconURL": "",
-  "description": "Comprehensive web data extraction plugin that searches Google using BrightData SERP API and fetches webpage content using BrightData Web Unlocker API. Uses OpenAI to extract clean, structured data from HTML content.",
+  "description": "Search Google or fetch web content using BrightData APIs. Use `gl` for country and `hl` for language. Supports up to 20 parallel search queries or URLs per request.",
   "userSettings": [
     {
       "name": "serpApiKey",
       "label": "BrightData SERP API Key",
-      "description": "Your BrightData API key for Google search requests. Required for web, news, and shopping searches.",
+      "description": "Your BrightData API key for Google search requests.",
       "type": "password",
       "required": true
     },
@@ -24,7 +24,7 @@
     {
       "name": "unlockerApiKey",
       "label": "BrightData Web Unlocker API Key",
-      "description": "Your BrightData API key for bypassing website protections when fetching webpages. Required for content extraction from protected sites.",
+      "description": "Your BrightData API key for bypassing website protections when fetching webpages. Required for content extraction.",
       "type": "password",
       "required": true
     },
@@ -38,14 +38,14 @@
     {
       "name": "openaiApiKey",
       "label": "OpenAI API Key",
-      "description": "Your OpenAI API key for processing HTML content and extracting clean, readable text from webpages. Required for intelligent content extraction.",
+      "description": "Your OpenAI API key for content extraction and content cleaning via AI.",
       "type": "password",
       "required": true
     },
     {
       "name": "openaiModel",
       "label": "OpenAI Model",
-      "description": "OpenAI model used for HTML content processing and text extraction. Higher models provide better accuracy but cost more.",
+      "description": "OpenAI model for content analysis.",
       "type": "enum",
       "values": [
         "gpt-4.1",
@@ -59,7 +59,7 @@
   ],
   "openaiSpec": {
     "name": "brightdata_web_fetcher",
-    "description": "Search Google using BrightData SERP API or fetch webpage content using BrightData Web Unlocker API. Intelligently choose appropriate gl (country) and hl (language) parameters for localized research. Always respond in the user's language while accessing the best local content.",
+    "description": "Search Google (SERP API, use gl/country and hl/language for localization; supports up to 20 queries) or fetch content from up to 20 URLs in parallel (Web Unlocker API).",
     "parameters": {
       "type": "object",
       "properties": {
@@ -69,11 +69,12 @@
             "search",
             "fetch"
           ],
-          "description": "Action to perform: 'search' uses BrightData SERP API for Google searches; 'fetch' uses BrightData Web Unlocker API to extract content from URLs"
+          "description": "'search': Google search (SERP API); 'fetch': web/page fetch (Web Unlocker API)"
         },
         "query": {
-          "type": "string",
-          "description": "Search query for Google searches. Can include operators like site:, filetype:, quotes for exact phrases, etc. Only required when action is 'search'."
+          "type": ["string", "array"],
+          "items": { "type": "string" },
+          "description": "Search query or array of queries (max 20, required when action is 'search')."
         },
         "tbm": {
           "type": "string",
@@ -81,31 +82,34 @@
             "nws",
             "shop"
           ],
-          "description": "Google search type: 'nws' for news, 'shop' for shopping. Omit for regular web search."
+          "description": "Google search type: 'nws' for news, 'shop' for shopping."
         },
         "ibp": {
           "type": "string",
-          "description": "For Jobs search, use 'htl;jobs'. Only used when searching for job listings."
+          "description": "For jobs search, use 'htl;jobs'."
         },
         "gl": {
           "type": "string",
-          "description": "Two-letter country code for search localization. Choose strategically from available Google country codes."
+          "description": "Google 'gl' parameter: country code for localization. Choose from Google's supported gl values."
         },
         "hl": {
           "type": "string",
-          "description": "Language interface code. Choose strategically from available Google language codes."
+          "description": "Google 'hl' parameter: interface language code. Choose from Google's supported hl values."
         },
         "start": {
           "type": "integer",
-          "description": "Result offset for pagination. 0 (default) for first page, 20 for second page, 40 for third page, etc."
+          "description": "Pagination result offset. 0 (default), 20 for second page, 40 for third, etc."
         },
         "num": {
           "type": "integer",
-          "description": "Number of results to return. Default is 20, maximum varies by search type."
+          "description": "Number of results to return per query. Default is 20."
         },
         "url": {
-          "type": "string",
-          "description": "Complete URL to fetch content from using Web Unlocker API. Supports HTML pages (processed with AI), JSON/XML/JavaScript/CSS files (returned as-is), and other text-based content. Binary files and images are not supported."
+          "type": ["string", "array"],
+          "items": {
+            "type": "string"
+          },
+          "description": "Single URL or array of URLs (max 20) to fetch with Web Unlocker. Supports HTML/JSON/XML/JavaScript/CSS/text (cleaned if HTML)."
         }
       },
       "required": [
