@@ -20,6 +20,40 @@ async function brightdata_web_fetcher(params, userSettings) {
       return html;
     }
 
+    // Helper function to detect if content is HTML
+    function isHtmlContent(content) {
+      if (!content || typeof content !== 'string') {
+        return false;
+      }
+      
+      // Trim whitespace and convert to lowercase for checking
+      const trimmedContent = content.trim().toLowerCase();
+      
+      // Check for common HTML patterns
+      const htmlPatterns = [
+        /^<!doctype\s+html/i,
+        /^<html/i,
+        /^<\?xml.*\?>/i,
+        /<html[\s>]/i,
+        /<head[\s>]/i,
+        /<body[\s>]/i,
+        /<title[\s>]/i,
+        /<meta[\s>]/i,
+        /<div[\s>]/i,
+        /<p[\s>]/i,
+        /<span[\s>]/i,
+        /<article[\s>]/i,
+        /<section[\s>]/i,
+        /<header[\s>]/i,
+        /<footer[\s>]/i,
+        /<nav[\s>]/i,
+        /<main[\s>]/i
+      ];
+      
+      // Check if content matches any HTML pattern
+      return htmlPatterns.some(pattern => pattern.test(trimmedContent));
+    }
+
     // JSON schema for SERP results
     const serpResultsSchema = {
       "type": "object",
@@ -116,7 +150,7 @@ ${content}`;
         prompt = `Extract the main content from the HTML:
 1. Identify and extract ONLY the main article/content body as clean text.
 2. Remove all navigation, ads, sidebars, suggested articles, copyright notices, social media buttons, comments, suggestions for following, subscribing or reading more about different topics, footers, content unrelated to the main content, or any non-essential information.
-3. Remove all HTML tags and links to return only plain text.
+3. Preserve <pre>, <code> HTml tags, but remove all other HTML tags and links to return plain text.
 4. Remove all line breaks such as \\n or \\r\\n.
 5. Focus only on the core readable content that a user would want to read.
 6. Generate a targeted research query (2-10 words) based on the main topic that would help find additional information about this story.
@@ -300,10 +334,29 @@ ${content}`;
         };
       }
 
-      const htmlResult = await response.text();
+      const rawContent = await response.text();
       
+      // Check if the content is HTML
+      if (!isHtmlContent(rawContent)) {
+        // Return raw content without processing for non-HTML content
+        return {
+          success: true,
+          action: "fetch",
+          url,
+          content: {
+            data: {
+              title: null,
+              content: rawContent,
+              target_research: null
+            }
+          },
+          content_type: "non-html"
+        };
+      }
+
+      // For HTML content, continue with existing processing
       // Extract body content only
-      const bodyContent = extractBodyContent(htmlResult);
+      const bodyContent = extractBodyContent(rawContent);
       
       // Process with OpenAI using structured output
       const processedContent = await processWithOpenAI(bodyContent, 'fetch', '', url);
@@ -312,7 +365,8 @@ ${content}`;
         success: true,
         action: "fetch",
         url,
-        content: processedContent
+        content: processedContent,
+        content_type: "html"
       };
 
     } else {
