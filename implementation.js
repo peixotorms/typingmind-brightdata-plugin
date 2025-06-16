@@ -1,6 +1,17 @@
 async function brightdata_web_fetcher(params, userSettings) {
   try {
-    const { action, query, search_type = 'web', url, image_format = 'auto' } = params;
+    const { 
+      action, 
+      query, 
+      tbm, 
+      ibp, 
+      gl, 
+      hl, 
+      start, 
+      num, 
+      url 
+    } = params;
+    
     const {
       serpApiKey,
       serpZone,
@@ -54,52 +65,117 @@ async function brightdata_web_fetcher(params, userSettings) {
       return htmlPatterns.some(pattern => pattern.test(trimmedContent));
     }
 
-    // Helper function to detect image format from URL or content type
-    function detectImageFormat(url, contentType = '') {
-      const urlLower = url.toLowerCase();
+    // Helper function to detect content type and determine processing method
+    function getContentProcessingType(content, contentType = '', url = '') {
       const contentTypeLower = contentType.toLowerCase();
-      
-      // Check content type first
-      if (contentTypeLower.includes('image/jpeg') || contentTypeLower.includes('image/jpg')) {
-        return 'jpeg';
+      const urlLower = url.toLowerCase();
+
+      // Check content type header first
+      if (contentTypeLower.includes('text/html') || contentTypeLower.includes('application/xhtml')) {
+        return 'html';
       }
-      if (contentTypeLower.includes('image/png')) {
-        return 'png';
+      if (contentTypeLower.includes('application/json') || contentTypeLower.includes('text/json')) {
+        return 'json';
       }
-      if (contentTypeLower.includes('image/webp')) {
-        return 'webp';
+      if (contentTypeLower.includes('application/xml') || contentTypeLower.includes('text/xml')) {
+        return 'xml';
       }
-      if (contentTypeLower.includes('image/gif')) {
-        return 'gif';
+      if (contentTypeLower.includes('application/javascript') || contentTypeLower.includes('text/javascript')) {
+        return 'javascript';
       }
-      
-      // Check URL extension
-      if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) {
-        return 'jpeg';
+      if (contentTypeLower.includes('text/css')) {
+        return 'css';
       }
-      if (urlLower.includes('.png')) {
-        return 'png';
+      if (contentTypeLower.includes('text/plain')) {
+        return 'text';
       }
-      if (urlLower.includes('.webp')) {
-        return 'webp';
+
+      // Check URL extension as fallback
+      if (urlLower.endsWith('.json')) {
+        return 'json';
       }
-      if (urlLower.includes('.gif')) {
-        return 'gif';
+      if (urlLower.endsWith('.xml') || urlLower.endsWith('.rss') || urlLower.endsWith('.atom')) {
+        return 'xml';
       }
-      
-      // Default to jpeg if unable to determine
-      return 'jpeg';
+      if (urlLower.endsWith('.js') || urlLower.endsWith('.mjs')) {
+        return 'javascript';
+      }
+      if (urlLower.endsWith('.css')) {
+        return 'css';
+      }
+      if (urlLower.endsWith('.txt')) {
+        return 'text';
+      }
+
+      // Check content patterns as last resort
+      if (isHtmlContent(content)) {
+        return 'html';
+      }
+
+      // Try to parse as JSON
+      try {
+        JSON.parse(content);
+        return 'json';
+      } catch (e) {
+        // Not JSON
+      }
+
+      // Check for XML patterns
+      if (content.trim().startsWith('<?xml') || content.trim().startsWith('<')) {
+        return 'xml';
+      }
+
+      // If content type indicates binary or unsupported format
+      if (contentTypeLower.includes('image/') || 
+          contentTypeLower.includes('video/') || 
+          contentTypeLower.includes('audio/') || 
+          contentTypeLower.includes('application/pdf') || 
+          contentTypeLower.includes('application/octet-stream') || 
+          contentTypeLower.includes('application/zip') || 
+          contentTypeLower.includes('application/x-')) {
+        return 'unsupported';
+      }
+
+      // Default to text if it seems like readable content
+      return 'text';
     }
 
-    // Helper function to convert ArrayBuffer to base64
-    function arrayBufferToBase64(buffer) {
-      let binary = '';
-      const bytes = new Uint8Array(buffer);
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
+    // Helper function to build Google search URL with parameters
+    function buildGoogleSearchUrl(query, searchParams) {
+      const baseUrl = 'https://www.google.com/search';
+      const params = new URLSearchParams();
+      
+      // Add the main query
+      params.append('q', query);
+      
+      // Add search type parameters
+      if (searchParams.tbm) {
+        params.append('tbm', searchParams.tbm);
       }
-      return btoa(binary);
+      
+      if (searchParams.ibp) {
+        params.append('ibp', searchParams.ibp);
+      }
+      
+      // Add localization parameters
+      if (searchParams.gl) {
+        params.append('gl', searchParams.gl);
+      }
+      
+      if (searchParams.hl) {
+        params.append('hl', searchParams.hl);
+      }
+      
+      // Add pagination parameters
+      if (searchParams.start !== undefined) {
+        params.append('start', searchParams.start.toString());
+      }
+      
+      if (searchParams.num !== undefined) {
+        params.append('num', searchParams.num.toString());
+      }
+      
+      return `${baseUrl}?${params.toString()}`;
     }
 
     // JSON schema for SERP results
@@ -256,7 +332,7 @@ ${content}`;
       }
     }
 
-    // If we are performing a search action
+    // If we are performing a search action using BrightData SERP API
     if (action === 'search') {
       if (!serpApiKey) {
         return {
@@ -271,30 +347,17 @@ ${content}`;
         };
       }
 
-      const encodedQuery = encodeURIComponent(query);
-      let searchUrl;
-      switch (search_type) {
-        case 'web':
-          searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
-          break;
-        case 'news':
-          searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=nws`;
-          break;
-        case 'images':
-          searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=isch`;
-          break;
-        case 'videos':
-          searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=vid`;
-          break;
-        case 'shopping':
-          searchUrl = `https://www.google.com/search?q=${encodedQuery}&tbm=shop`;
-          break;
-        case 'scholar':
-          searchUrl = `https://scholar.google.com/scholar?q=${encodedQuery}`;
-          break;
-        default:
-          searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
-      }
+      // Build search URL with provided parameters
+      const searchParams = {
+        tbm,
+        ibp,
+        gl,
+        hl,
+        start,
+        num
+      };
+
+      const searchUrl = buildGoogleSearchUrl(query, searchParams);
 
       const requestBody = {
         zone: serpZone,
@@ -331,11 +394,12 @@ ${content}`;
         success: true,
         action: "search",
         query,
-        search_type,
+        search_params: searchParams,
+        search_url: searchUrl,
         results: processedContent
       };
 
-    } else if (action === 'fetch') { // If we are fetching a webpage
+    } else if (action === 'fetch') { // If we are fetching a webpage using BrightData Web Unlocker API
       if (!unlockerApiKey) {
         return {
           success: false,
@@ -383,152 +447,72 @@ ${content}`;
       }
 
       const rawContent = await response.text();
+      const contentType = response.headers.get('content-type') || '';
       
-      // Check if the content is HTML
-      if (!isHtmlContent(rawContent)) {
-        // Return raw content without processing for non-HTML content
-        return {
-          success: true,
-          action: "fetch",
-          url,
-          content: {
-            data: {
-              title: null,
-              content: rawContent,
-              target_research: null
-            }
-          },
-          content_type: "non-html"
-        };
-      }
+      // Determine how to process the content
+      const processingType = getContentProcessingType(rawContent, contentType, url);
 
-      // For HTML content, continue with existing processing
-      // Extract body content only
-      const bodyContent = extractBodyContent(rawContent);
-      
-      // Process with OpenAI using structured output
-      const processedContent = await processWithOpenAI(bodyContent, 'fetch', '', url);
-
-      return {
-        success: true,
-        action: "fetch",
-        url,
-        content: processedContent,
-        content_type: "html"
-      };
-
-    } else if (action === 'download_image') { // If we are downloading an image
-      if (!unlockerApiKey) {
-        return {
-          success: false,
-          error: 'BrightData Web Unlocker API key not configured. Please set it in plugin settings.'
-        };
-      }
-      if (!url) {
-        return {
-          success: false,
-          error: 'URL is required for download_image action.'
-        };
-      }
-
-      // Validate the URL
-      try {
-        new URL(url);
-      } catch (_) {
-        return {
-          success: false,
-          error: 'Invalid URL provided.'
-        };
-      }
-
-      // First try direct fetch for images
-      try {
-        const directResponse = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        });
-
-        if (directResponse.ok) {
-          const contentType = directResponse.headers.get('content-type') || '';
+      switch (processingType) {
+        case 'html':
+          // Extract body content and process with OpenAI
+          const bodyContent = extractBodyContent(rawContent);
+          const processedContent = await processWithOpenAI(bodyContent, 'fetch', '', url);
           
-          // Check if it's actually an image
-          if (contentType.startsWith('image/')) {
-            const imageBuffer = await directResponse.arrayBuffer();
-            const base64Data = arrayBufferToBase64(imageBuffer);
-            const detectedFormat = detectImageFormat(url, contentType);
-            
-            return {
-              success: true,
-              action: "download_image",
-              url,
-              image: {
-                data: base64Data,
-                format: detectedFormat,
-                content_type: contentType,
-                size_bytes: imageBuffer.byteLength,
-                base64_url: `data:${contentType};base64,${base64Data}`
-              },
-              method: "direct_fetch"
-            };
-          }
-        }
-      } catch (directError) {
-        // If direct fetch fails, continue with BrightData
-        console.log('Direct fetch failed, trying BrightData:', directError.message);
+          return {
+            success: true,
+            action: "fetch",
+            url,
+            content: processedContent,
+            content_type: "html"
+          };
+
+        case 'json':
+        case 'xml':
+        case 'javascript':
+        case 'css':
+        case 'text':
+          // Return content as-is without AI processing
+          return {
+            success: true,
+            action: "fetch",
+            url,
+            content: {
+              data: {
+                title: null,
+                content: rawContent,
+                target_research: null
+              }
+            },
+            content_type: processingType
+          };
+
+        case 'unsupported':
+          return {
+            success: false,
+            error: `Unsupported content type: ${contentType}. This plugin only supports HTML, JSON, XML, JavaScript, CSS, and plain text files. For images, videos, PDFs, and other binary files, please upload them directly to the chat.`
+          };
+
+        default:
+          // Fallback - treat as text
+          return {
+            success: true,
+            action: "fetch",
+            url,
+            content: {
+              data: {
+                title: null,
+                content: rawContent,
+                target_research: null
+              }
+            },
+            content_type: "text"
+          };
       }
-
-      // Fallback to BrightData if direct fetch fails
-      const requestBody = {
-        zone: unlockerZone,
-        url: url,
-        format: 'raw'
-      };
-
-      const response = await fetch('https://api.brightdata.com/request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${unlockerApiKey}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          success: false,
-          error: `BrightData Web Unlocker API error (${response.status}): ${errorText}`
-        };
-      }
-
-      // Get the response as ArrayBuffer for binary data
-      const imageBuffer = await response.arrayBuffer();
-      const contentType = response.headers.get('content-type') || 'image/jpeg';
-      
-      // Convert to base64
-      const base64Data = arrayBufferToBase64(imageBuffer);
-      const detectedFormat = image_format === 'auto' ? detectImageFormat(url, contentType) : image_format;
-      
-      return {
-        success: true,
-        action: "download_image",
-        url,
-        image: {
-          data: base64Data,
-          format: detectedFormat,
-          content_type: contentType,
-          size_bytes: imageBuffer.byteLength,
-          base64_url: `data:${contentType};base64,${base64Data}`
-        },
-        method: "brightdata"
-      };
 
     } else {
       return {
         success: false,
-        error: 'Invalid action. Must be either "search", "fetch", or "download_image".'
+        error: 'Invalid action. Must be either "search" or "fetch".'
       };
     }
   } catch (error) {

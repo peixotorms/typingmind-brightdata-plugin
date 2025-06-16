@@ -5,12 +5,12 @@
   "title": "BrightData Web Fetcher",
   "emoji": "🌐",
   "iconURL": "",
-  "description": "Comprehensive web data extraction plugin that searches Google, fetches and processes webpage content, and downloads images. Uses BrightData APIs to bypass restrictions and OpenAI to extract clean, structured data from HTML content.",
+  "description": "Comprehensive web data extraction plugin that searches Google using BrightData SERP API and fetches webpage content using BrightData Web Unlocker API. Uses OpenAI to extract clean, structured data from HTML content.",
   "userSettings": [
     {
       "name": "serpApiKey",
       "label": "BrightData SERP API Key",
-      "description": "Your BrightData API key for Google search requests. Required for web, news, images, videos, shopping, and scholar searches.",
+      "description": "Your BrightData API key for Google search requests. Required for web, news, and shopping searches.",
       "type": "password",
       "required": true
     },
@@ -24,7 +24,7 @@
     {
       "name": "unlockerApiKey",
       "label": "BrightData Web Unlocker API Key",
-      "description": "Your BrightData API key for bypassing website protections when fetching webpages and downloading images. Required for content extraction and image downloads.",
+      "description": "Your BrightData API key for bypassing website protections when fetching webpages. Required for content extraction from protected sites.",
       "type": "password",
       "required": true
     },
@@ -59,7 +59,7 @@
   ],
   "openaiSpec": {
     "name": "brightdata_web_fetcher",
-    "description": "Comprehensive web data extraction tool that performs Google searches, fetches and intelligently processes webpage content, and downloads images in base64 format for AI analysis. Uses BrightData APIs to bypass website restrictions and OpenAI to extract clean, structured content from HTML.",
+    "description": "Search Google using BrightData SERP API or fetch webpage content using BrightData Web Unlocker API. Returns structured search results with source name, title, excerpt, and URL; for HTML pages returns AI-extracted clean article content; for JSON/XML/JavaScript/CSS/text files returns raw content as-is; errors for unsupported binary file types.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -67,42 +67,45 @@
           "type": "string",
           "enum": [
             "search",
-            "fetch",
-            "download_image"
+            "fetch"
           ],
-          "description": "Action to perform: 'search' performs Google searches and returns structured results with titles, excerpts, and URLs; 'fetch' extracts and processes webpage content using AI to return clean readable text; 'download_image' downloads images from URLs and converts them to base64 format for AI processing"
+          "description": "Action to perform: 'search' uses BrightData SERP API for Google searches; 'fetch' uses BrightData Web Unlocker API to extract content from URLs"
         },
         "query": {
           "type": "string",
           "description": "Search query for Google searches. Can include operators like site:, filetype:, quotes for exact phrases, etc. Only required when action is 'search'."
         },
-        "search_type": {
+        "tbm": {
           "type": "string",
           "enum": [
-            "web",
-            "news",
-            "images",
-            "videos",
-            "shopping",
-            "scholar"
+            "nws",
+            "shop"
           ],
-          "description": "Type of Google search to perform. 'web' for general results, 'news' for recent news articles, 'images' for image search results, 'videos' for video content, 'shopping' for product listings, 'scholar' for academic papers. Only used with 'search' action.",
-          "default": "web"
+          "description": "Google search type: 'nws' for news, 'shop' for shopping. Omit for regular web search."
+        },
+        "ibp": {
+          "type": "string",
+          "description": "For Jobs search, use 'htl;jobs'. Only used when searching for job listings."
+        },
+        "gl": {
+          "type": "string",
+          "description": "Two-letter country code for search localization (e.g., 'us', 'uk', 'ca'). Defines the country of search."
+        },
+        "hl": {
+          "type": "string",
+          "description": "Two-letter language code for search localization (e.g., 'en', 'es', 'fr'). Defines the page language."
+        },
+        "start": {
+          "type": "integer",
+          "description": "Result offset for pagination. 0 (default) for first page, 20 for second page, 40 for third page, etc."
+        },
+        "num": {
+          "type": "integer",
+          "description": "Number of results to return. Default is 20, maximum varies by search type."
         },
         "url": {
           "type": "string",
-          "description": "Complete URL to process. For 'fetch' action: webpage URL to extract content from (supports articles, blogs, documentation, etc.). For 'download_image' action: direct image URL to download and convert to base64 format."
-        },
-        "image_format": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "jpeg",
-            "png",
-            "webp"
-          ],
-          "description": "Preferred image format for processing. 'auto' automatically detects format from URL extension or content type. 'jpeg', 'png', 'webp' force specific format handling. Only used with 'download_image' action.",
-          "default": "auto"
+          "description": "Complete URL to fetch content from using Web Unlocker API. Supports HTML pages (processed with AI), JSON/XML/JavaScript/CSS files (returned as-is), and other text-based content. Binary files and images are not supported."
         }
       },
       "required": [
