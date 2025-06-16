@@ -33,7 +33,7 @@ async function brightdata_web_fetcher(params, userSettings) {
     const COUNTRY_CODES = GOOGLE_COUNTRIES.map(c => c.country_code);
     const LANGUAGE_CODES = GOOGLE_LANGUAGES.map(l => l.language_code);
 
-    // Simplified schemas
+    // Updated schema to limit search queries to 5 max
     const searchQuerySchema = {
       "type": "object",
       "properties": {
@@ -43,7 +43,7 @@ async function brightdata_web_fetcher(params, userSettings) {
           "type": "array", 
           "items": { "type": "string" },
           "minItems": 3,
-          "maxItems": 15,
+          "maxItems": 5,
           "description": "Array of search queries in the target language" 
         }
       },
@@ -177,7 +177,7 @@ Instructions:
 1. Detect geographic focus from the query (countries, regions, cities, locations mentioned)
 2. Choose the most appropriate gl (country) parameter from the available list
 3. Choose the most appropriate hl (language) parameter from the available list
-4. Generate 3-15 related search queries in the TARGET LANGUAGE
+4. Generate 3-5 related search queries in the TARGET LANGUAGE (maximum 5 queries)
 5. If no geographic context is detected, default to: gl="us", hl="en"
 
 Generate diverse, specific queries that will capture comprehensive information about the topic.`;
@@ -353,41 +353,35 @@ Return only the selected URLs as an array of strings.`;
       return JSON.parse(selectionContent);
     }
 
-    // Step 4: Fetch URLs in batches of 10
-    async function fetchUrlsInBatches(selectedUrls) {
-      const research_data = [];
-      const batchSize = 10;
+    // Step 4: Fetch all URLs in parallel (no batching)
+    async function fetchAllUrls(selectedUrls) {
+      const fetchPromises = selectedUrls.map(async (targetUrl) => {
+        try {
+          const response = await fetch('https://api.brightdata.com/request', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${unlockerApiKey}`
+            },
+            body: JSON.stringify({ zone: unlockerZone, url: targetUrl, format: 'raw' })
+          });
 
-      for (let i = 0; i < selectedUrls.length; i += batchSize) {
-        const batch = selectedUrls.slice(i, i + batchSize);
-        
-        const batchPromises = batch.map(async (targetUrl) => {
-          try {
-            const response = await fetch('https://api.brightdata.com/request', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${unlockerApiKey}`
-              },
-              body: JSON.stringify({ zone: unlockerZone, url: targetUrl, format: 'raw' })
-            });
+          if (!response.ok) {
+            const errorText = await response.text();
+            return {
+              url: targetUrl,
+              content: null
+            };
+          }
 
-            if (!response.ok) {
-              const errorText = await response.text();
-              return {
-                url: targetUrl,
-                content: null
-              };
-            }
+          const rawContent = await response.text();
+          const contentType = response.headers.get('content-type') || '';
+          const processingType = getContentProcessingType(rawContent, contentType, targetUrl);
 
-            const rawContent = await response.text();
-            const contentType = response.headers.get('content-type') || '';
-            const processingType = getContentProcessingType(rawContent, contentType, targetUrl);
-
-            if (processingType === 'html') {
-              const bodyContent = extractBodyContent(rawContent);
-              
-              const extractPrompt = `Extract the main content from this HTML webpage.
+          if (processingType === 'html') {
+            const bodyContent = extractBodyContent(rawContent);
+            
+            const extractPrompt = `Extract the main content from this HTML webpage.
 
 Instructions:
 1. Extract ONLY the main content body as clean text
@@ -400,56 +394,53 @@ URL: ${targetUrl}
 HTML Content:
 ${bodyContent}`;
 
-              const extractRequestBody = {
-                model: openaiModel,
-                messages: [{ role: "user", content: extractPrompt }],
-                response_format: { type: "json_schema", json_schema: { name: "content", strict: true, schema: webUnlockerContentSchema }},
-                max_tokens: 32768,
-                temperature: 0
-              };
+            const extractRequestBody = {
+              model: openaiModel,
+              messages: [{ role: "user", content: extractPrompt }],
+              response_format: { type: "json_schema", json_schema: { name: "content", strict: true, schema: webUnlockerContentSchema }},
+              max_tokens: 32768,
+              temperature: 0
+            };
 
-              const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
-                body: JSON.stringify(extractRequestBody)
-              });
+            const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+              body: JSON.stringify(extractRequestBody)
+            });
 
-              if (extractResponse.ok) {
-                const extractResult = await extractResponse.json();
-                const extractedContent = extractResult.choices[0]?.message?.content;
-                if (extractedContent) {
-                  const parsedContent = JSON.parse(extractedContent);
-                  return {
-                    url: targetUrl,
-                    content: parsedContent.data.content
-                  };
-                }
+            if (extractResponse.ok) {
+              const extractResult = await extractResponse.json();
+              const extractedContent = extractResult.choices[0]?.message?.content;
+              if (extractedContent) {
+                const parsedContent = JSON.parse(extractedContent);
+                return {
+                  url: targetUrl,
+                  content: parsedContent.data.content
+                };
               }
-
-              return {
-                url: targetUrl,
-                content: bodyContent.substring(0, 10000)
-              };
-            } else {
-              return {
-                url: targetUrl,
-                content: rawContent
-              };
             }
 
-          } catch (error) {
+            // Fall back to raw content if AI processing fails
             return {
               url: targetUrl,
-              content: null
+              content: bodyContent.substring(0, 10000)
+            };
+          } else {
+            return {
+              url: targetUrl,
+              content: rawContent
             };
           }
-        });
 
-        const batchResults = await Promise.all(batchPromises);
-        research_data.push(...batchResults);
-      }
+        } catch (error) {
+          return {
+            url: targetUrl,
+            content: null
+          };
+        }
+      });
 
-      return research_data;
+      return Promise.all(fetchPromises);
     }
 
     // Main logic
@@ -480,8 +471,8 @@ ${bodyContent}`;
         // Step 3: Select relevant URLs
         const urlSelection = await selectRelevantUrls(searchResults, query, context_question);
 
-        // Step 4: Fetch content from selected URLs
-        const research_data = await fetchUrlsInBatches(urlSelection.selected_urls);
+        // Step 4: Fetch content from all selected URLs in parallel
+        const research_data = await fetchAllUrls(urlSelection.selected_urls);
 
         return {
           success: true,
@@ -572,10 +563,11 @@ ${bodyContent}`;
                   }
                 }
               } catch (aiError) {
-                // Fall back to raw content if AI processing fails
+                // Fall back to raw content if AI processing fails - continue to fallback below
               }
             }
             
+            // Fallback: use raw body content if AI processing is unavailable or fails
             results.push({
               url: targetUrl,
               success: true,
@@ -588,6 +580,7 @@ ${bodyContent}`;
               content_type: "html"
             });
           } else {
+            // Non-HTML content - return as-is
             results.push({
               url: targetUrl,
               success: true,
