@@ -60,21 +60,22 @@ async function brightdata_web_fetcher(params, userSettings) {
       "tum", "tr", "tk", "tw", "ug", "uk", "ur", "uz", "vu", "vi", "cy", "wo", "xh", "yi", "yo", "zu"
     ];
 
-    // Query analysis schema for AI parameter suggestions
+    // Query analysis schema for AI parameter detection
     const queryAnalysisSchema = {
       "type": "object",
       "properties": {
-        "suggested_gl": { "type": ["string", "null"], "description": "Suggested Google gl (country) parameter" },
-        "suggested_hl": { "type": ["string", "null"], "description": "Suggested Google hl (language) parameter" },
+        "suggested_gl": { "type": ["string", "null"], "description": "Suggested Google gl (country) parameter from the available list" },
+        "suggested_hl": { "type": ["string", "null"], "description": "Suggested Google hl (language) parameter from the available list" },
+        "target_language": { "type": "string", "description": "Target language name for processing (e.g., 'French', 'German', 'English', 'Spanish')" },
         "additional_queries": { 
           "type": "array", 
           "items": { "type": "string" },
           "maxItems": 10,
-          "description": "Additional related queries for comprehensive results" 
+          "description": "Additional related queries in the target language" 
         },
-        "reasoning": { "type": "string", "description": "Brief explanation of parameter choices" }
+        "reasoning": { "type": "string", "description": "Brief explanation of country/language choices" }
       },
-      "required": ["suggested_gl", "suggested_hl", "additional_queries", "reasoning"],
+      "required": ["suggested_gl", "suggested_hl", "target_language", "additional_queries", "reasoning"],
       "additionalProperties": false
     };
 
@@ -131,12 +132,12 @@ async function brightdata_web_fetcher(params, userSettings) {
       return `${baseUrl}?${params.toString()}`;
     }
 
-    // PARALLEL: Analyze multiple queries for optimal parameters with context
+    // PARALLEL: Analyze multiple queries for AI-determined parameters
     async function analyzeQueriesForParameters(queries, contextQuestion) {
       if (!openaiApiKey || !queries.length) return [];
       
       const analysisPromises = queries.map(async (query, index) => {
-        const prompt = `Analyze this search query and determine the best Google search parameters and additional queries:
+        const prompt = `Analyze this search query and determine the optimal Google search parameters:
 
 Original Context/Question: "${contextQuestion || 'General search'}"
 Current Query: "${query}"
@@ -145,14 +146,22 @@ Available country codes (gl): ${GOOGLE_GL_OPTIONS.join(', ')}
 Available language codes (hl): ${GOOGLE_HL_OPTIONS.join(', ')}
 
 Instructions:
-1. Detect geographic references and suggest appropriate gl parameter
-2. Detect language context and suggest appropriate hl parameter  
-3. Generate 3-10 additional related queries focused on the original context
-4. If query mentions a specific country, prioritize that country's gl and primary language
-5. Consider cultural/local context for better results
-6. Keep additional queries relevant to the original question/context
+1. Analyze the query for geographic context (countries, regions, cities mentioned)
+2. Choose the most appropriate gl (country) parameter from the available list
+3. Choose the most appropriate hl (language) parameter from the available list
+4. Determine the target language name for content processing
+5. Generate 3-10 additional related queries in the TARGET LANGUAGE
+6. Consider local context and cultural relevance
 
-Provide reasoning for your choices.`;
+Examples:
+- Query about France → gl: "fr", hl: "fr", target_language: "French", queries in French
+- Query about Germany → gl: "de", hl: "de", target_language: "German", queries in German  
+- Query about Switzerland → choose primary language (German/French/Italian based on context)
+- Query about Canada → gl: "ca", hl: "en", target_language: "English", queries in English
+- Query about multilingual countries → choose most relevant language for the context
+- No geographic context → gl: "us", hl: "en", target_language: "English", queries in English
+
+Always choose from the provided lists. Provide reasoning for your choices.`;
 
         const requestBody = {
           model: openaiModel,
@@ -245,8 +254,8 @@ Provide reasoning for your choices.`;
       "additionalProperties": false
     };
 
-    // PARALLEL: Batch OpenAI processing for multiple HTML contents
-    async function batchProcessWithOpenAI(contentBatch, actionType, contextQuestion = '') {
+    // PARALLEL: Batch OpenAI processing with target language specification
+    async function batchProcessWithOpenAI(contentBatch, actionType, targetLanguage = 'English', searchParams = {}) {
       if (!openaiApiKey) throw new Error('OpenAI API key not configured. Please set it in plugin settings.');
       
       const requests = contentBatch.map(async (item) => {
@@ -254,21 +263,34 @@ Provide reasoning for your choices.`;
         
         if (actionType === 'search') {
           prompt = `Extract search results from this Google search HTML content for the query: "${item.query}". 
-IMPORTANT: Respond in the same language as the user's query.
-REFERENCE: Google search parameters options:
-- gl: ${GOOGLE_GL_OPTIONS.join(', ')}
-- hl: ${GOOGLE_HL_OPTIONS.join(', ')}
-Extract all real search results (do not invent or summarize).`;
+
+TARGET LANGUAGE: ${targetLanguage}
+IMPORTANT: Process and respond in ${targetLanguage}. Extract titles, excerpts, and source names in ${targetLanguage}.
+
+REFERENCE: Google search parameters used:
+- gl: ${searchParams.gl || 'not set'}
+- hl: ${searchParams.hl || 'not set'}
+
+Extract all real search results (do not invent or summarize). Maintain original URLs without modification.
+
+HTML Content:
+${item.content}`;
           responseFormat = { type: "json_schema", json_schema: { name: "search_results", strict: true, schema: serpResultsSchema }};
         } else if (actionType === 'fetch') {
-          prompt = `Extract the main content from the HTML. Process as instructed, regardless of language. 
-1. Extract ONLY the main content body as clean text.
+          prompt = `Extract the main content from this HTML webpage.
+
+TARGET LANGUAGE: ${targetLanguage}
+IMPORTANT: Process content and respond in ${targetLanguage}.
+
+Instructions:
+1. Extract ONLY the main content body as clean text in ${targetLanguage}
 2. Remove navigation, ads, etc.
-3. Preserve <pre>, <code> HTML tags, remove all other HTML tags.
-4. Remove line breaks.
-5. Generate a descriptive name for this content.
-6. Extract 5-10 relevant keywords.
-7. Generate 3-5 targeted research queries (2-10 words each) for finding related information.
+3. Preserve <pre>, <code> HTML tags, remove all other HTML tags
+4. Remove line breaks
+5. Generate a descriptive name in ${targetLanguage}
+6. Extract 5-10 relevant keywords in ${targetLanguage}
+7. Generate 3-5 targeted research queries (2-10 words each) in ${targetLanguage}
+
 URL: ${item.url}
 HTML Content:
 ${item.content}`;
@@ -315,7 +337,7 @@ ${item.content}`;
     }
 
     // PARALLEL: Fetch multiple URLs with batch AI processing
-    async function fetchMultipleUrls(urls, contextQuestion) {
+    async function fetchMultipleUrls(urls, targetLanguage = 'English') {
       // Step 1: Fetch all URLs in parallel
       const fetchPromises = urls.map(async (url, index) => {
         try { 
@@ -414,9 +436,9 @@ ${item.content}`;
         }
       });
 
-      // Step 3: Process HTML content in parallel batches
+      // Step 3: Process HTML content in parallel batches with target language
       if (htmlItems.length > 0) {
-        const processedHtmlItems = await batchProcessWithOpenAI(htmlItems, 'fetch', contextQuestion);
+        const processedHtmlItems = await batchProcessWithOpenAI(htmlItems, 'fetch', targetLanguage);
         
         processedHtmlItems.forEach((item) => {
           if (item.success) {
@@ -449,8 +471,9 @@ ${item.content}`;
       let queries = Array.isArray(query) ? query : [query];
       let searchParams = { tbm, ibp, gl, hl, start, num: num || 10 }; // Default to 10 results per query
       let queryAnalyses = [];
+      let targetLanguage = 'English'; // Default
 
-      // PARALLEL: Analyze all queries for optimal parameters if not provided
+      // PARALLEL: Analyze all queries for AI-determined parameters if not provided
       if (!gl || !hl) {
         queryAnalyses = await analyzeQueriesForParameters(queries, context_question);
         
@@ -462,6 +485,9 @@ ${item.content}`;
           }
           if (!hl && firstValidAnalysis.analysis.suggested_hl && GOOGLE_HL_OPTIONS.includes(firstValidAnalysis.analysis.suggested_hl)) {
             searchParams.hl = firstValidAnalysis.analysis.suggested_hl;
+          }
+          if (firstValidAnalysis.analysis.target_language) {
+            targetLanguage = firstValidAnalysis.analysis.target_language;
           }
         }
 
@@ -475,6 +501,38 @@ ${item.content}`;
         
         if (additionalQueries.length > 0) {
           queries = [...queries, ...additionalQueries];
+        }
+      } else {
+        // If both gl and hl are provided by user, need AI to determine target language
+        if (openaiApiKey) {
+          const langDetectionPrompt = `Given these Google search parameters, determine the target language name for content processing:
+gl (country): ${searchParams.gl}
+hl (language): ${searchParams.hl}
+
+Return only the language name (e.g., "French", "German", "English", "Spanish", "Chinese", "Japanese", etc.)`;
+          
+          try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+              body: JSON.stringify({
+                model: openaiModel,
+                messages: [{ role: "user", content: langDetectionPrompt }],
+                max_tokens: 50,
+                temperature: 0
+              })
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              const detectedLang = result.choices[0]?.message?.content?.trim();
+              if (detectedLang) {
+                targetLanguage = detectedLang;
+              }
+            }
+          } catch (error) {
+            // Keep default English if detection fails
+          }
         }
       }
 
@@ -520,7 +578,7 @@ ${item.content}`;
 
       const searchResults = await Promise.all(searchPromises);
 
-      // PARALLEL: Process all HTML search results with AI  
+      // PARALLEL: Process all HTML search results with AI in target language 
       const htmlSearchItems = searchResults
         .filter(result => result.success)
         .map(result => ({
@@ -529,7 +587,7 @@ ${item.content}`;
           content: result.content
         }));
 
-      const processedSearchResults = await batchProcessWithOpenAI(htmlSearchItems, 'search', context_question);
+      const processedSearchResults = await batchProcessWithOpenAI(htmlSearchItems, 'search', targetLanguage, searchParams);
 
       // Combine results
       const finalSearchResults = searchResults.map(result => {
@@ -560,6 +618,7 @@ ${item.content}`;
         total_queries: queries.length,
         queries_limit_applied: queries.length >= MAX_SEARCH_QUERIES,
         search_params_used: searchParams,
+        target_language: targetLanguage,
         context_question: context_question
       };
 
@@ -570,6 +629,7 @@ ${item.content}`;
           reasoning: qa.analysis?.reasoning,
           suggested_gl: qa.analysis?.suggested_gl,
           suggested_hl: qa.analysis?.suggested_hl,
+          target_language: qa.analysis?.target_language,
           generated_additional_queries: qa.analysis?.additional_queries
         }));
       }
@@ -587,14 +647,56 @@ ${item.content}`;
       // Apply URL fetch limit
       const limitedUrls = urls.length > MAX_FETCH_URLS ? urls.slice(0, MAX_FETCH_URLS) : urls;
 
-      // PARALLEL: Fetch and process all URLs
-      const results = await fetchMultipleUrls(limitedUrls, context_question);
+      // Determine target language from context or parameters
+      let targetLanguage = 'English'; // Default
+      
+      if (gl || hl || context_question) {
+        // Let AI determine target language based on available context
+        if (openaiApiKey) {
+          const contextAnalysisPrompt = `Determine the target language for processing web content based on this context:
+
+Context/Question: "${context_question || 'No context provided'}"
+Google gl parameter: ${gl || 'not set'}
+Google hl parameter: ${hl || 'not set'}
+URLs to fetch: ${limitedUrls.slice(0, 3).join(', ')}${limitedUrls.length > 3 ? ' ...' : ''}
+
+Choose the most appropriate target language name for content processing (e.g., "French", "German", "English", "Spanish", "Chinese", "Japanese", etc.)
+Return only the language name.`;
+          
+          try {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+              body: JSON.stringify({
+                model: openaiModel,
+                messages: [{ role: "user", content: contextAnalysisPrompt }],
+                max_tokens: 50,
+                temperature: 0
+              })
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              const detectedLang = result.choices[0]?.message?.content?.trim();
+              if (detectedLang) {
+                targetLanguage = detectedLang;
+              }
+            }
+          } catch (error) {
+            // Keep default English if detection fails
+          }
+        }
+      }
+
+      // PARALLEL: Fetch and process all URLs with AI-determined target language
+      const results = await fetchMultipleUrls(limitedUrls, targetLanguage);
       
       return Array.isArray(url) ? {
         success: true,
         results,
         total_urls: limitedUrls.length,
         urls_limit_applied: urls.length > MAX_FETCH_URLS,
+        target_language: targetLanguage,
         context_question: context_question
       } : results[0];
 
