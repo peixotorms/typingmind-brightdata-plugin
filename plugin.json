@@ -1,15 +1,15 @@
 {
   "version": 2,
-  "uuid": "brightdata-web-fetcher",
+  "uuid": "brightdata-web-fetcher", 
   "id": "brightdata-web-fetcher",
   "title": "BrightData Web Fetcher",
   "emoji": "🌐",
   "iconURL": "",
-  "description": "Search Google with country/language targeting or fetch web content. For searches: choose appropriate gl/hl parameters based on user needs, plugin will create query variations and execute research pipeline. Defaults to US/English if not specified.",
+  "description": "Search Google, research topics in-depth, or fetch web content. Three modes: 'search' for quick results, 'research' for comprehensive analysis, 'fetch' for direct URLs.",
   "userSettings": [
     {
       "name": "serpApiKey",
-      "label": "BrightData SERP API Key",
+      "label": "BrightData SERP API Key", 
       "description": "Your BrightData API key for Google search requests.",
       "type": "password",
       "required": true
@@ -24,8 +24,8 @@
     {
       "name": "unlockerApiKey",
       "label": "BrightData Web Unlocker API Key",
-      "description": "Your BrightData API key for bypassing website protections when fetching webpages. Required for content extraction.",
-      "type": "password",
+      "description": "Your BrightData API key for bypassing website protections when fetching webpages. Required for research and fetch actions.",
+      "type": "password", 
       "required": true
     },
     {
@@ -38,18 +38,18 @@
     {
       "name": "openaiApiKey",
       "label": "OpenAI API Key",
-      "description": "Your OpenAI API key for content extraction and content cleaning via AI.",
+      "description": "Your OpenAI API key for content extraction and analysis. Required for research action.",
       "type": "password",
       "required": true
     },
     {
       "name": "openaiModel",
-      "label": "OpenAI Model",
+      "label": "OpenAI Model", 
       "description": "OpenAI model for content analysis.",
       "type": "enum",
       "values": [
         "gpt-4.1",
-        "o4-mini",
+        "o4-mini", 
         "gpt-4.1-mini",
         "gpt-4.1-nano"
       ],
@@ -59,35 +59,40 @@
   ],
   "openaiSpec": {
     "name": "brightdata_web_fetcher",
-    "description": "Search Google targeting specific countries/languages or fetch web content. MANDATORY TARGETING RULES: When user mentions ANY country/language, you MUST use that country's gl code and language's hl code. 'Japanese news' = MANDATORY gl=jp, hl=ja. 'German articles' = MANDATORY gl=de, hl=de. 'French politics' = MANDATORY gl=fr, hl=fr. NO EXCEPTIONS. Query MUST be translated to target language.",
+    "description": "Search Google, research topics, or fetch content. INTENT-BASED ACTIONS: 'search' for finding/discovering (fast, headlines only). 'research' for deep analysis (reads full content). 'fetch' for specific URLs. TARGETING: When country/language mentioned, use appropriate gl/hl codes and translate queries.",
     "parameters": {
       "type": "object",
       "properties": {
         "action": {
-          "type": "string",
+          "type": "string", 
           "enum": [
             "search",
+            "research", 
             "fetch"
           ],
-          "description": "'search': Google search with country/language targeting; 'fetch': direct URL content extraction"
+          "description": "'search': Quick discovery - returns headlines/snippets only (use for 'find X', 'get latest Y', 'show me Z'). 'research': Deep analysis - fetches and reads full content (use for 'research X', 'analyze Y', 'compare A vs B'). 'fetch': Direct URL content extraction."
         },
         "query": {
-          "type": "string",
-          "description": "Optimized search keywords in the target language (hl parameter). NOT just translation - use effective search terms that natives would use. For Japanese news: '最新ニュース' or '速報' (not literal translation). For German tech: 'deutsche Technologie Nachrichten' or 'Tech News Deutschland'. For French politics: 'actualités politiques France' or 'politique française'. Choose keywords that work best for that market."
+          "type": ["string", "array"],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "description": "Search query or array of up to 5 different search queries in target language. For search action: use multiple strategic queries to find what you need. For research action: single focused query. Use optimized keywords for target market, not literal translations."
         },
         "context_question": {
           "type": "string",
-          "description": "The original user question in English to help determine content relevance during URL selection."
+          "description": "Original user question in English for relevance filtering (research action only)."
         },
         "gl": {
           "type": "string",
           "enum": ["af","al","dz","as","ad","ao","ai","aq","ag","ar","am","aw","au","at","az","bs","bh","bd","bb","by","be","bz","bj","bm","bt","bo","ba","bw","bv","br","io","bn","bg","bf","bi","kh","cm","ca","cv","ky","cf","td","cl","cn","cx","cc","co","km","cg","cd","ck","cr","ci","hr","cu","cy","cz","dk","dj","dm","do","ec","eg","sv","gq","er","ee","et","fk","fo","fj","fi","fr","gf","pf","tf","ga","gm","ge","de","gh","gi","gr","gl","gd","gp","gu","gt","gn","gw","gy","ht","hm","va","hn","hk","hu","is","in","id","ir","iq","ie","il","it","jm","jp","jo","kz","ke","ki","kp","kr","kw","kg","la","lv","lb","ls","lr","ly","li","lt","lu","mo","mk","mg","mw","my","mv","ml","mt","mh","mq","mr","mu","yt","mx","fm","md","mc","mn","ms","ma","mz","mm","na","nr","np","nl","nc","nz","ni","ne","ng","nu","nf","mp","no","om","pk","pw","ps","pa","pg","py","pe","ph","pn","pl","pt","pr","qa","re","ro","ru","rw","sh","kn","lc","pm","vc","ws","sm","st","sa","sn","rs","sc","sl","sg","sk","si","sb","so","za","gs","es","lk","sd","sr","sj","sz","se","ch","sy","tw","tj","tz","th","tl","tg","tk","to","tt","tn","tr","tm","tc","tv","ug","ua","ae","uk","gb","us","um","uy","uz","vu","ve","vn","vg","vi","wf","eh","ye","zm","zw","gg","je","im","me"],
-          "description": "MANDATORY country targeting. Japanese/Japan=jp, German/Germany=de, French/France=fr, Chinese/China=cn, Spanish/Spain=es, Russian/Russia=ru, Korean/Korea=kr, Italian/Italy=it, Portuguese/Brazil=br, Dutch/Netherlands=nl, etc. NO CHOICE - use the mentioned country."
+          "description": "Country targeting. When country mentioned: Japanese→jp, German→de, French→fr, etc. Defaults to 'us'."
         },
         "hl": {
-          "type": "string",
+          "type": "string", 
           "enum": ["af","ak","sq","am","ar","hy","az","eu","be","bem","bn","bh","bs","br","bg","km","ca","chr","ny","zh-cn","zh-tw","co","hr","cs","da","nl","en","eo","et","ee","fo","tl","fi","fr","fy","gaa","gl","ka","de","el","kl","gn","gu","ht","ha","haw","iw","hi","hu","is","ig","id","ia","ga","it","ja","jw","kn","kk","rw","rn","kg","ko","kri","ku","ckb","ky","lo","la","lv","ln","lt","loz","lg","ach","mk","mg","my","ms","ml","mt","mv","mi","mr","mfe","mo","mn","sr-me","ne","pcm","nso","no","nn","oc","or","om","ps","fa","pl","pt","pt-br","pt-pt","pa","qu","ro","rm","nyn","ru","gd","sr","sh","st","tn","crs","sn","sd","si","sk","sl","so","es","es-419","su","sw","sv","tg","ta","tt","te","th","ti","to","lua","tum","tr","tk","tw","ug","uk","ur","uz","vu","vi","cy","wo","xh","yi","yo","zu"],
-          "description": "MANDATORY language targeting. Japanese=ja, German=de, French=fr, Chinese=zh-cn, Spanish=es, Russian=ru, Korean=ko, Italian=it, Portuguese=pt, Dutch=nl, etc. NO CHOICE - use the mentioned language. Query MUST be translated to this language."
+          "description": "Language targeting. When language mentioned: Japanese→ja, German→de, French→fr, etc. Defaults to 'en'."
         },
         "tbm": {
           "type": "string",
@@ -95,10 +100,10 @@
             "nws",
             "shop"
           ],
-          "description": "Google search type: 'nws' for news (REQUIRED when user asks for news, headlines, current events), 'shop' for shopping."
+          "description": "'nws' for news searches, 'shop' for shopping."
         },
         "ibp": {
-          "type": "string",
+          "type": "string", 
           "description": "For jobs search, use 'htl;jobs'."
         },
         "url": {
@@ -106,15 +111,15 @@
           "items": {
             "type": "string"
           },
-          "description": "URL or array of URLs for 'fetch' action. Extracts content directly without searching."
+          "description": "URL or array of URLs for 'fetch' action."
         },
         "start": {
           "type": "integer",
-          "description": "Google search results offset (for pagination, e.g., 0, 10, 20)."
+          "description": "Search results offset for pagination."
         },
         "num": {
-          "type": "integer",
-          "description": "Number of Google search results to request (e.g., 10, 20, 100). Note: Google typically supports up to 100."
+          "type": "integer", 
+          "description": "Number of search results (max 100)."
         }
       },
       "required": [

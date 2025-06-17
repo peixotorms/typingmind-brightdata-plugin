@@ -155,7 +155,7 @@ async function brightdata_web_fetcher(params, userSettings) {
       return `${baseUrl}?${params.toString()}`;
     }
 
-    // Create simple query variations without AI
+    // Create simple query variations without AI (for research action)
     function createQueryVariations(originalQuery) {
       const variations = [];
       
@@ -245,7 +245,7 @@ ${bodyContent}`;
       return Promise.all(searchPromises);
     }
 
-    // Deduplicate and select relevant URLs
+    // Deduplicate and select relevant URLs (for research action)
     async function selectRelevantUrls(allSearchResults, originalQuery, contextQuestion) {
       const seenUrls = new Set();
       const uniqueResults = [];
@@ -320,7 +320,7 @@ Return only the selected URLs as an array of strings.`;
       return JSON.parse(selectionContent);
     }
 
-    // Fetch all URLs in parallel (no batching)
+    // Fetch all URLs in parallel (for research action)
     async function fetchAllUrls(selectedUrls) {
       const fetchPromises = selectedUrls.map(async (targetUrl) => {
         try {
@@ -434,12 +434,30 @@ ${bodyContent}`;
       return Promise.all(fetchPromises);
     }
 
+    // Deduplicate and combine search results (for search action)
+    function combineSearchResults(allSearchResults) {
+      const seenUrls = new Set();
+      const combinedResults = [];
+
+      allSearchResults.forEach(searchResult => {
+        if (searchResult.success && searchResult.results) {
+          searchResult.results.forEach(result => {
+            if (result.url && !seenUrls.has(result.url)) {
+              seenUrls.add(result.url);
+              combinedResults.push(result);
+            }
+          });
+        }
+      });
+
+      return combinedResults;
+    }
+
     // Main logic
     if (action === 'search') {
+      // SEARCH ACTION: Quick discovery - returns headlines/snippets only
       if (!serpApiKey)
         return { success: false, error: 'BrightData SERP API key not configured. Please set it in plugin settings.' };
-      if (!unlockerApiKey)
-        return { success: false, error: 'BrightData Web Unlocker API key not configured. Please set it in plugin settings.' };
       if (!openaiApiKey)
         return { success: false, error: 'OpenAI API key not configured. Please set it in plugin settings.' };
       if (!query)
@@ -456,28 +474,78 @@ ${bodyContent}`;
           num
         };
 
-        // Create simple query variations
-        const searchQueries = createQueryVariations(query);
+        // Handle multiple queries - support both string and array
+        const searchQueries = Array.isArray(query) ? query.slice(0, 5) : [query];
 
         // Execute searches in parallel
         const searchResults = await executeSearches(searchQueries, searchParams);
 
-        // Select relevant URLs
-        const urlSelection = await selectRelevantUrls(searchResults, query, context_question);
-
-        // Fetch content from all selected URLs in parallel
-        const research_data = await fetchAllUrls(urlSelection.selected_urls);
+        // Combine and deduplicate results
+        const combinedResults = combineSearchResults(searchResults);
 
         return {
           success: true,
-          research_data
+          action: 'search',
+          search_results: combinedResults,
+          total_results: combinedResults.length,
+          queries_executed: searchQueries
         };
 
       } catch (error) {
         return { success: false, error: `Search workflow error: ${error.message}` };
       }
 
+    } else if (action === 'research') {
+      // RESEARCH ACTION: Deep analysis - fetches and reads full content
+      if (!serpApiKey)
+        return { success: false, error: 'BrightData SERP API key not configured. Please set it in plugin settings.' };
+      if (!unlockerApiKey)
+        return { success: false, error: 'BrightData Web Unlocker API key not configured. Please set it in plugin settings.' };
+      if (!openaiApiKey)
+        return { success: false, error: 'OpenAI API key not configured. Please set it in plugin settings.' };
+      if (!query)
+        return { success: false, error: 'Query is required for research action.' };
+
+      try {
+        // Use provided gl/hl or default to us/en
+        const searchParams = {
+          tbm,
+          ibp,
+          gl: gl || 'us',
+          hl: hl || 'en',
+          start,
+          num
+        };
+
+        // For research, use single query or first query if array provided
+        const researchQuery = Array.isArray(query) ? query[0] : query;
+
+        // Create simple query variations
+        const searchQueries = createQueryVariations(researchQuery);
+
+        // Execute searches in parallel
+        const searchResults = await executeSearches(searchQueries, searchParams);
+
+        // Select relevant URLs
+        const urlSelection = await selectRelevantUrls(searchResults, researchQuery, context_question);
+
+        // Fetch content from all selected URLs in parallel
+        const research_data = await fetchAllUrls(urlSelection.selected_urls);
+
+        return {
+          success: true,
+          action: 'research',
+          research_data,
+          total_urls_fetched: research_data.length,
+          original_query: researchQuery
+        };
+
+      } catch (error) {
+        return { success: false, error: `Research workflow error: ${error.message}` };
+      }
+
     } else if (action === 'fetch') {
+      // FETCH ACTION: Direct URL content extraction (unchanged)
       if (!unlockerApiKey)
         return { success: false, error: 'BrightData Web Unlocker API key not configured. Please set it in plugin settings.' };
       if (!url)
@@ -640,15 +708,21 @@ ${bodyContent}`;
         const results = await Promise.all(urlsToProcess.map(targetUrl => processSingleUrl(targetUrl)));
         return {
           success: true,
+          action: 'fetch',
           results,
           total_urls: urlsToProcess.length
         };
       } else {
-        return await processSingleUrl(urlsToProcess[0]);
+        const result = await processSingleUrl(urlsToProcess[0]);
+        return {
+          success: result.success,
+          action: 'fetch',
+          ...result
+        };
       }
 
     } else {
-      return { success: false, error: 'Invalid action. Must be either "search" or "fetch".' };
+      return { success: false, error: 'Invalid action. Must be "search", "research", or "fetch".' };
     }
 
   } catch (error) {
