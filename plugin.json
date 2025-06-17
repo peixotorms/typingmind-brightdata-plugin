@@ -105,6 +105,14 @@
             "type": "string"
           },
           "description": "URL or array of URLs for 'fetch' action. Extracts content directly without searching."
+        },
+        "start": {
+          "type": "integer",
+          "description": "Google search results offset (for pagination, e.g., 0, 10, 20)."
+        },
+        "num": {
+          "type": "integer",
+          "description": "Number of Google search results to request (e.g., 10, 20, 100). Note: Google typically supports up to 100."
         }
       },
       "required": [
