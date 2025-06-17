@@ -73,7 +73,7 @@
         },
         "query": {
           "type": "string",
-          "description": "Search query MUST BE TRANSLATED to the target language in hl parameter. User says 'Japanese news today' → query MUST be in Japanese: '今日の日本のニュース'. User says 'German tech news' → query MUST be in German: 'deutsche tech nachrichten'. NEVER use English if targeting non-English language."
+          "description": "Optimized search keywords in the target language (hl parameter). NOT just translation - use effective search terms that natives would use. For Japanese news: '最新ニュース' or '速報' (not literal translation). For German tech: 'deutsche Technologie Nachrichten' or 'Tech News Deutschland'. For French politics: 'actualités politiques France' or 'politique française'. Choose keywords that work best for that market."
         },
         "context_question": {
           "type": "string",
