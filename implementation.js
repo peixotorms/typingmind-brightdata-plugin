@@ -179,7 +179,7 @@ async function brightdata_web_fetcher(params, userSettings) {
 
     // Step 1: Generate search queries with geographic targeting
     async function generateSearchQueries(originalQuery, contextQuestion) {
-      const prompt = `Analyze the provided "Original Query" and "Context/Question" to determine search parameters and generate relevant search queries.
+      const prompt = `Analyze this search query and generate optimized Google search parameters and related queries:
 
 Original Query: "${originalQuery}"
 Context/Question: "${contextQuestion || 'General research'}"
@@ -188,13 +188,13 @@ Available country codes (gl): ${COUNTRY_CODES.join(', ')}
 Available language codes (hl): ${LANGUAGE_CODES.join(', ')}
 
 Instructions:
-1. Based on the "Original Query" and "Context/Question", identify the primary geographic target country and select its corresponding code from the "Available country codes (gl)".
-2. Determine the primary language code (hl) for the selected 'gl'. This 'hl' code MUST be the standard language for that country (e.g., if 'gl' is 'jp', 'hl' must be 'ja'; if 'gl' is 'de', 'hl' must be 'de'). Choose from "Available language codes (hl)".
-3. Generate 3-5 search query strings *in the language determined for 'hl'*. These queries should accurately reflect the user's intent in "Original Query" and "Context/Question".
-4. If no specific geographic target can be determined, you MUST use gl="us" and hl="en".
-5. Ensure the generated search queries are diverse and specific to capture comprehensive information.
+1. Detect geographic focus from the query (countries, regions, cities, locations mentioned)
+2. Choose the most appropriate gl (country) parameter from the available list
+3. Choose the most appropriate hl (language) parameter from the available list
+4. Generate 3-5 related search queries in the TARGET LANGUAGE (maximum 5 queries)
+5. If no geographic context is detected, default to: gl="us", hl="en"
 
-Output format MUST be a JSON object matching the provided schema.`;
+Generate diverse, specific queries that will capture comprehensive information about the topic.`;
 
       const requestBody = {
         model: openaiModel,
@@ -294,7 +294,7 @@ ${bodyContent}`;
     }
 
     // Step 3: Deduplicate and select relevant URLs
-    async function selectRelevantUrls(allSearchResults, originalQuery, contextQuestion, searchGl, searchHl) {
+    async function selectRelevantUrls(allSearchResults, originalQuery, contextQuestion) {
       const seenUrls = new Set();
       const uniqueResults = [];
 
@@ -313,15 +313,13 @@ ${bodyContent}`;
         return { selected_urls: [] };
       }
 
-      const selectionPrompt = `Select the most relevant URLs for comprehensive research on the given topic.
+      const selectionPrompt = `Select the most relevant URLs for comprehensive research on this topic:
 
 Original Query: "${originalQuery}"
-Context/Question (user's original language): "${contextQuestion || 'General research'}"
-Search performed for country: "${searchGl}" and language: "${searchHl}".
-The listed search results were obtained using these parameters, and their content is expected to be in language '${searchHl}'.
+Context/Question: "${contextQuestion || 'General research'}"
 
 Available search results:
-${uniqueResults.map((result, index) =>
+${uniqueResults.map((result, index) => 
   `${index + 1}. Title: ${result.title}
    URL: ${result.url}
    Excerpt: ${result.excerpt}
@@ -329,11 +327,10 @@ ${uniqueResults.map((result, index) =>
 ).join('\n\n')}
 
 Instructions:
-1. Based on the "Context/Question", select URLs that are most relevant.
-2. Remember that the content at these URLs is in language '${searchHl}' and targeted for country '${searchGl}'.
-3. Prioritize authoritative sources, official websites, and comprehensive content.
-4. Avoid duplicate or very similar content.
-5. Select up to 150 URLs maximum.
+1. Select URLs that are most relevant to answering the research question
+2. Prioritize authoritative sources, official websites, and comprehensive content
+3. Avoid duplicate or very similar content
+4. Select up to 150 URLs maximum
 
 Return only the selected URLs as an array of strings.`;
 
@@ -485,61 +482,6 @@ ${bodyContent}`;
       return Promise.all(fetchPromises);
     }
 
-    function getPrimaryLanguageForCountry(glCode, availableLanguageCodes) {
-      if (!glCode) return null; // Or a default like 'en'
-
-      const countryCode = glCode.toLowerCase();
-      const languageMap = {
-        'jp': 'ja', // Japan -> Japanese
-        'de': 'de', // Germany -> German
-        'fr': 'fr', // France -> French
-        'es': 'es', // Spain -> Spanish
-        'it': 'it', // Italy -> Italian
-        'gb': 'en', // United Kingdom -> English
-        'uk': 'en', // United Kingdom -> English (alias for gb)
-        'us': 'en', // United States -> English
-        'ca': 'en', // Canada -> English (primary for this context)
-        'au': 'en', // Australia -> English
-        'cn': 'zh-cn', // China -> Chinese (Simplified)
-        'kr': 'ko', // South Korea -> Korean
-        'br': 'pt', // Brazil -> Portuguese
-        'in': 'en', // India -> English (common for online content, though Hindi 'hi' is also official)
-        'ru': 'ru', // Russia -> Russian
-        'nl': 'nl', // Netherlands -> Dutch
-        'se': 'sv', // Sweden -> Swedish
-        'no': 'no', // Norway -> Norwegian
-        'dk': 'da', // Denmark -> Danish
-        'fi': 'fi', // Finland -> Finnish
-        'ch': 'de', // Switzerland -> German (one of its official languages, chosen as primary)
-        'at': 'de', // Austria -> German
-        'be': 'nl', // Belgium -> Dutch (one of its official languages, chosen as primary)
-        'pt': 'pt', // Portugal -> Portuguese
-        'ar': 'es', // Argentina -> Spanish
-        'mx': 'es', // Mexico -> Spanish
-        'sa': 'ar', // Saudi Arabia -> Arabic
-        'ae': 'ar', // UAE -> Arabic
-        'eg': 'ar', // Egypt -> Arabic
-        'za': 'en', // South Africa -> English
-        'tr': 'tr', // Turkey -> Turkish
-        'pl': 'pl', // Poland -> Polish
-        'id': 'id', // Indonesia -> Indonesian
-        'th': 'th'  // Thailand -> Thai
-        // Add more mappings as needed
-      };
-
-      if (languageMap[countryCode]) {
-        return languageMap[countryCode];
-      }
-
-      // Fallback 1: Direct match if glCode is a valid language code itself
-      if (availableLanguageCodes.includes(countryCode)) {
-        return countryCode;
-      }
-
-      // Fallback 2: Default to 'en' if no specific mapping or direct match found
-      return 'en';
-    }
-
     // Main logic
     if (action === 'search') {
       if (!serpApiKey)
@@ -555,26 +497,11 @@ ${bodyContent}`;
         // Step 1: Generate search queries and detect targeting
         const queryGeneration = await generateSearchQueries(query, context_question);
         
-        const determinedGl = gl || queryGeneration.gl || 'us'; // Ensure GL is always set, default to 'us'
-        const derivedHl = getPrimaryLanguageForCountry(determinedGl, LANGUAGE_CODES);
-
-        // User-provided 'hl' takes top precedence.
-        // Else, if AI provided 'hl' AND it matches the language derived from 'determinedGl', use AI's 'hl'.
-        // Else, use the 'hl' derived from 'determinedGl'.
-        let chosenHl;
-        if (hl) { // User-specified hl
-            chosenHl = hl;
-        } else if (queryGeneration.hl && queryGeneration.hl === derivedHl) { // AI-specified hl is consistent
-            chosenHl = queryGeneration.hl;
-        } else { // Default to derived hl
-            chosenHl = derivedHl;
-        }
-
         const searchParams = {
           tbm,
           ibp,
-          gl: determinedGl,
-          hl: chosenHl,
+          gl: gl || queryGeneration.gl,
+          hl: hl || queryGeneration.hl,
           start, // Pass start to searchParams
           num    // Pass num to searchParams
         };
@@ -583,7 +510,7 @@ ${bodyContent}`;
         const searchResults = await executeSearches(queryGeneration.search_queries, searchParams);
 
         // Step 3: Select relevant URLs
-        const urlSelection = await selectRelevantUrls(searchResults, query, context_question, searchParams.gl, searchParams.hl);
+        const urlSelection = await selectRelevantUrls(searchResults, query, context_question);
 
         // Step 4: Fetch content from all selected URLs in parallel
         const research_data = await fetchAllUrls(urlSelection.selected_urls);
