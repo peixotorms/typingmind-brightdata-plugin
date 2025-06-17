@@ -8,7 +8,9 @@ async function brightdata_web_fetcher(params, userSettings) {
       ibp, 
       gl, 
       hl, 
-      url 
+      url,
+      start,
+      num
     } = params;
     const {
       serpApiKey,
@@ -147,7 +149,8 @@ async function brightdata_web_fetcher(params, userSettings) {
       if (urlLower.endsWith('.txt')) return 'text';
       if (isHtmlContent(content)) return 'html';
       try { JSON.parse(content); return 'json'; } catch (e) {}
-      if (content.trim().startsWith('<?xml') || content.trim().startsWith('<')) return 'xml';
+      // More specific XML check, avoiding overly broad matching of '<'
+      if (content.trim().startsWith('<?xml')) return 'xml';
       return 'unsupported';
     }
 
@@ -159,7 +162,18 @@ async function brightdata_web_fetcher(params, userSettings) {
       if (searchParams.ibp) params.append('ibp', searchParams.ibp);
       if (searchParams.gl) params.append('gl', searchParams.gl);
       if (searchParams.hl) params.append('hl', searchParams.hl);
-      params.append('num', '10');
+
+      // Add start and num parameters if they are valid positive integers
+      if (Number.isInteger(searchParams.start) && searchParams.start >= 0) {
+        params.append('start', searchParams.start.toString());
+      }
+      if (Number.isInteger(searchParams.num) && searchParams.num > 0) {
+        params.append('num', searchParams.num.toString());
+      } else {
+        // Default to 10 results if num is not specified or invalid
+        params.append('num', '10');
+      }
+
       return `${baseUrl}?${params.toString()}`;
     }
 
@@ -225,7 +239,7 @@ Generate diverse, specific queries that will capture comprehensive information a
 
           if (!response.ok) {
             const errorText = await response.text();
-            return { query, index, success: false, error: `BrightData SERP API error (${response.status}): ${errorText}` };
+            return { query, index, success: false, error: `BrightData SERP API error for query '${query}' (${response.status}): ${errorText}` };
           }
 
           const htmlResult = await response.text();
@@ -253,13 +267,14 @@ ${bodyContent}`;
           });
 
           if (!extractResponse.ok) {
-            return { query, index, success: false, error: `OpenAI extraction error: ${extractResponse.status}` };
+            const errorText = await extractResponse.text();
+            return { query, index, success: false, error: `OpenAI extraction error for query '${query}': Server error (${extractResponse.status}) - ${errorText}` };
           }
 
           const extractResult = await extractResponse.json();
           const extractedContent = extractResult.choices[0]?.message?.content;
           if (!extractedContent) {
-            return { query, index, success: false, error: 'No extraction result from OpenAI' };
+            return { query, index, success: false, error: `No extraction result from OpenAI for query '${query}'` };
           }
 
           const parsedResults = JSON.parse(extractedContent);
@@ -271,7 +286,7 @@ ${bodyContent}`;
           };
 
         } catch (error) {
-          return { query, index, success: false, error: `Search error: ${error.message}` };
+          return { query, index, success: false, error: `Search error for query '${query}': ${error.message}` };
         }
       });
 
@@ -370,7 +385,8 @@ Return only the selected URLs as an array of strings.`;
             const errorText = await response.text();
             return {
               url: targetUrl,
-              content: null
+              success: false,
+              error: `BrightData Web Unlocker API error for URL '${targetUrl}': ${response.status} ${errorText}`
             };
           }
 
@@ -402,32 +418,54 @@ ${bodyContent}`;
               temperature: 0
             };
 
-            const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
-              body: JSON.stringify(extractRequestBody)
-            });
+            let aiProcessed = false;
+            let aiError = null;
+            try {
+              const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiApiKey}` },
+                body: JSON.stringify(extractRequestBody)
+              });
 
-            if (extractResponse.ok) {
-              const extractResult = await extractResponse.json();
-              const extractedContent = extractResult.choices[0]?.message?.content;
-              if (extractedContent) {
-                const parsedContent = JSON.parse(extractedContent);
-                return {
-                  url: targetUrl,
-                  content: parsedContent.data.content
-                };
+              if (extractResponse.ok) {
+                const extractResult = await extractResponse.json();
+                const extractedContent = extractResult.choices[0]?.message?.content;
+                if (extractedContent) {
+                  const parsedContent = JSON.parse(extractedContent);
+                  return {
+                    url: targetUrl,
+                    success: true,
+                    content: parsedContent.data.content
+                  };
+                } else {
+                  aiError = new Error("No content extracted by OpenAI.");
+                }
+              } else {
+                aiError = new Error(`OpenAI API error (${extractResponse.status}): ${await extractResponse.text()}`);
               }
+            } catch (err) {
+              aiError = err;
             }
 
-            // Fall back to raw content if AI processing fails
+            // If AI processing failed or didn't happen
+            if (aiError) {
+              return {
+                url: targetUrl,
+                success: false,
+                error: `OpenAI content extraction failed for URL '${targetUrl}': ${aiError.message}`,
+                content: bodyContent // Return full body content
+              };
+            }
+            // Fall back to raw content if AI processing was not applicable or had unhandled issue (should be caught by aiError)
             return {
               url: targetUrl,
-              content: bodyContent.substring(0, 10000)
+              success: true, // Successfully fetched, but not AI processed
+              content: bodyContent // Return full body content
             };
           } else {
             return {
               url: targetUrl,
+              success: true,
               content: rawContent
             };
           }
@@ -435,7 +473,8 @@ ${bodyContent}`;
         } catch (error) {
           return {
             url: targetUrl,
-            content: null
+            success: false,
+            error: `Fetch error for URL '${targetUrl}': ${error.message}`
           };
         }
       });
@@ -462,7 +501,9 @@ ${bodyContent}`;
           tbm,
           ibp,
           gl: gl || queryGeneration.gl,
-          hl: hl || queryGeneration.hl
+          hl: hl || queryGeneration.hl,
+          start, // Pass start to searchParams
+          num    // Pass num to searchParams
         };
 
         // Step 2: Execute searches in parallel
@@ -489,10 +530,10 @@ ${bodyContent}`;
       if (!url)
         return { success: false, error: 'URL is required for fetch action.' };
 
-      const urls = Array.isArray(url) ? url : [url];
-      const results = [];
+      const wasInputArray = Array.isArray(url);
+      const urlsToProcess = wasInputArray ? url : [url];
 
-      for (const targetUrl of urls) {
+      async function processSingleUrl(targetUrl) {
         try {
           const response = await fetch('https://api.brightdata.com/request', {
             method: 'POST',
@@ -505,12 +546,11 @@ ${bodyContent}`;
 
           if (!response.ok) {
             const errorText = await response.text();
-            results.push({
+            return {
               url: targetUrl,
               success: false,
-              error: `BrightData Web Unlocker API error (${response.status}): ${errorText}`
-            });
-            continue;
+              error: `BrightData Web Unlocker API error for URL '${targetUrl}' (${response.status}): ${errorText}`
+            };
           }
 
           const rawContent = await response.text();
@@ -553,35 +593,75 @@ ${bodyContent}`;
                   const extractedContent = extractResult.choices[0]?.message?.content;
                   if (extractedContent) {
                     const parsedContent = JSON.parse(extractedContent);
-                    results.push({
+                    return {
                       url: targetUrl,
                       success: true,
                       content: parsedContent.data,
                       content_type: "html"
-                    });
-                    continue;
+                    };
+                  } else {
+                    // OpenAI returned 200 OK but no content
+                    return {
+                      url: targetUrl,
+                      success: false,
+                      error: `OpenAI content extraction failed for URL '${targetUrl}': No content returned by API.`,
+                      content: {
+                        title: null,
+                        content: bodyContent, // Use full bodyContent
+                        additional_research_queries: [],
+                        url: targetUrl
+                      },
+                      content_type: "html"
+                    };
                   }
+                } else {
+                  // OpenAI API error
+                  const errorText = await extractResponse.text();
+                  return {
+                    url: targetUrl,
+                    success: false,
+                    error: `OpenAI content extraction failed for URL '${targetUrl}': API error (${extractResponse.status}) - ${errorText}`,
+                    content: {
+                      title: null,
+                      content: bodyContent, // Use full bodyContent
+                      additional_research_queries: [],
+                      url: targetUrl
+                    },
+                    content_type: "html"
+                  };
                 }
               } catch (aiError) {
-                // Fall back to raw content if AI processing fails - continue to fallback below
+                // Catch other errors during AI processing (e.g., network issues, JSON parsing of AI response)
+                return {
+                  url: targetUrl,
+                  success: false,
+                  error: `OpenAI content extraction failed for URL '${targetUrl}': ${aiError.message}`,
+                  content: {
+                    title: null,
+                    content: bodyContent, // Use full bodyContent
+                    additional_research_queries: [],
+                    url: targetUrl
+                  },
+                  content_type: "html"
+                };
               }
             }
             
-            // Fallback: use raw body content if AI processing is unavailable or fails
-            results.push({
+            // Fallback: use raw body content if AI processing is unavailable (no openaiApiKey)
+            return {
               url: targetUrl,
-              success: true,
+              success: true, // Successfully fetched, but not AI processed
               content: {
                 title: null,
-                content: bodyContent.substring(0, 10000),
+                content: bodyContent, // Use full bodyContent
                 additional_research_queries: [],
                 url: targetUrl
               },
               content_type: "html"
-            });
+            };
           } else {
             // Non-HTML content - return as-is
-            results.push({
+            return {
               url: targetUrl,
               success: true,
               content: {
@@ -591,23 +671,28 @@ ${bodyContent}`;
                 url: targetUrl
               },
               content_type: processingType
-            });
+            };
           }
 
         } catch (error) {
-          results.push({
+          return {
             url: targetUrl,
             success: false,
-            error: `Fetch error: ${error.message}`
-          });
+            error: `Fetch error for URL '${targetUrl}': ${error.message}`
+          };
         }
       }
 
-      return Array.isArray(url) ? {
-        success: true,
-        results,
-        total_urls: urls.length
-      } : results[0];
+      if (wasInputArray) {
+        const results = await Promise.all(urlsToProcess.map(targetUrl => processSingleUrl(targetUrl)));
+        return {
+          success: true,
+          results,
+          total_urls: urlsToProcess.length
+        };
+      } else {
+        return await processSingleUrl(urlsToProcess[0]);
+      }
 
     } else {
       return { success: false, error: 'Invalid action. Must be either "search" or "fetch".' };
