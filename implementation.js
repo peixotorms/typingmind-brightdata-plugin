@@ -39,73 +39,10 @@ async function brightdata_web_fetcher(params, userSettings) {
       "additionalProperties": false
     };
 
-    const webUnlockerContentSchema = {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "object",
-          "properties": {
-            "title": { "type": ["string", "null"], "description": "Main content headline or title" },
-            "content": { "type": ["string", "null"], "description": "Clean text content of the main body without HTML tags, line breaks, or non-essential information" },
-            "additional_research_queries": { 
-              "type": "array", 
-              "items": { "type": "string" },
-              "maxItems": 5,
-              "description": "Array of targeted research queries (2-10 words each) for finding related information" 
-            },
-            "url": { "type": "string", "description": "The URL that was processed" }
-          },
-          "required": ["title", "content", "additional_research_queries", "url"],
-          "additionalProperties": false
-        }
-      },
-      "required": ["data"],
-      "additionalProperties": false
-    };
-
     function extractBodyContent(html) {
       const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
       if (bodyMatch) return bodyMatch[1];
       return html;
-    }
-
-    function isHtmlContent(content) {
-      if (!content || typeof content !== 'string') return false;
-      const trimmedContent = content.trim().toLowerCase();
-      const htmlPatterns = [
-        /^<!doctype\s+html/i, /^<html/i, /^<\?xml.*\?>/i,
-        /<html[\s>]/i, /<head[\s>]/i, /<body[\s>]/i,
-        /<title[\s>]/i, /<meta[\s>]/i, /<div[\s>]/i,
-        /<p[\s>]/i, /<span[\s>]/i, /<article[\s>]/i,
-        /<section[\s>]/i, /<header[\s>]/i, /<footer[\s>]/i,
-        /<nav[\s>]/i, /<main[\s>]/i
-      ];
-      return htmlPatterns.some(pattern => pattern.test(trimmedContent));
-    }
-
-    function getContentProcessingType(content, contentType = '', url = '') {
-      const contentTypeLower = contentType.toLowerCase();
-      const urlLower = url.toLowerCase();
-      if (contentTypeLower.includes('text/html') || contentTypeLower.includes('application/xhtml')) return 'html';
-      if (contentTypeLower.includes('application/json') || contentTypeLower.includes('text/json')) return 'json';
-      if (contentTypeLower.includes('application/xml') || contentTypeLower.includes('text/xml')) return 'xml';
-      if (contentTypeLower.includes('application/javascript') || contentTypeLower.includes('text/javascript')) return 'javascript';
-      if (contentTypeLower.includes('text/css')) return 'css';
-      if (contentTypeLower.includes('text/plain')) return 'text';
-      if (urlLower.endsWith('.json')) return 'json';
-      if (urlLower.endsWith('.xml') || urlLower.endsWith('.rss') || urlLower.endsWith('.atom')) return 'xml';
-      if (urlLower.endsWith('.js') || urlLower.endsWith('.mjs')) return 'javascript';
-      if (urlLower.endsWith('.css')) return 'css';
-      if (urlLower.endsWith('.txt')) return 'text';
-      if (isHtmlContent(content)) return 'html';
-      try { 
-        JSON.parse(content); 
-        return 'json'; 
-      } catch (e) {
-        // Not JSON
-      }
-      if (content.trim().startsWith('<?xml')) return 'xml';
-      return 'unsupported';
     }
 
     function buildGoogleSearchUrl(query, searchParams) {
@@ -295,7 +232,8 @@ ${bodyContent}`;
               body: JSON.stringify({ 
                 zone: unlockerZone, 
                 url: targetUrl, 
-                format: 'raw' 
+                format: 'raw',
+                data_format: 'markdown'
               })
             });
 
@@ -308,103 +246,14 @@ ${bodyContent}`;
               };
             }
 
-            const rawContent = await response.text();
-            const contentType = response.headers.get('content-type') || '';
-            const processingType = getContentProcessingType(rawContent, contentType, targetUrl);
+            const markdownContent = await response.text();
 
-            if (processingType === 'html' && openaiApiKey) {
-              const bodyContent = extractBodyContent(rawContent);
-              
-              try {
-                const extractPrompt = `Extract the main content from this HTML webpage.
-
-Instructions:
-1. Extract ONLY the main content body as clean text
-2. Remove navigation, ads, etc.
-3. Preserve <pre>, <code> HTML tags, remove all other HTML tags
-4. Remove line breaks
-5. Generate 3-5 targeted research queries (2-10 words each)
-
-URL: ${targetUrl}
-HTML Content:
-${bodyContent}`;
-
-                const extractRequestBody = {
-                  model: openaiModel,
-                  messages: [{ role: "user", content: extractPrompt }],
-                  response_format: { 
-                    type: "json_schema", 
-                    json_schema: { 
-                      name: "content", 
-                      strict: true, 
-                      schema: webUnlockerContentSchema 
-                    }
-                  },
-                  max_tokens: 32768,
-                  temperature: 0
-                };
-
-                const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-                  method: 'POST',
-                  headers: { 
-                    'Content-Type': 'application/json', 
-                    'Authorization': `Bearer ${openaiApiKey}` 
-                  },
-                  body: JSON.stringify(extractRequestBody)
-                });
-
-                if (extractResponse.ok) {
-                  const extractResult = await extractResponse.json();
-                  const extractedContent = extractResult.choices[0]?.message?.content;
-                  if (extractedContent) {
-                    const parsedContent = JSON.parse(extractedContent);
-                    return {
-                      url: targetUrl,
-                      success: true,
-                      content: parsedContent.data,
-                      content_type: "html"
-                    };
-                  }
-                }
-                
-                return {
-                  url: targetUrl,
-                  success: true,
-                  content: {
-                    title: null,
-                    content: bodyContent,
-                    additional_research_queries: [],
-                    url: targetUrl
-                  },
-                  content_type: "html"
-                };
-
-              } catch (aiError) {
-                return {
-                  url: targetUrl,
-                  success: true,
-                  content: {
-                    title: null,
-                    content: bodyContent,
-                    additional_research_queries: [],
-                    url: targetUrl
-                  },
-                  content_type: "html"
-                };
-              }
-            } else {
-              return {
-                url: targetUrl,
-                success: true,
-                content: {
-                  title: null,
-                  content: rawContent,
-                  additional_research_queries: [],
-                  url: targetUrl
-                },
-                content_type: processingType
-              };
-            }
+            return {
+              url: targetUrl,
+              success: true,
+              content: markdownContent,
+              content_type: "markdown"
+            };
 
           } catch (error) {
             return {
